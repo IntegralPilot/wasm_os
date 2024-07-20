@@ -2,6 +2,8 @@ use core::fmt;
 use lazy_static::lazy_static;
 use spin::Mutex;
 use volatile::Volatile;
+use alloc::string::String;
+use alloc::vec::Vec;
 
 lazy_static! {
     /// A global `Writer` instance that can be used for printing to the VGA text buffer.
@@ -9,7 +11,7 @@ lazy_static! {
     /// Used by the `print!` and `println!` macros.
     pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
         column_position: 0,
-        color_code: ColorCode::new(Color::Yellow, Color::Black),
+        color_code: ColorCode::new(Color::White, Color::Black),
         buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
     });
 }
@@ -141,6 +143,52 @@ impl Writer {
             self.buffer.chars[row][col].write(blank);
         }
     }
+
+    pub fn current_line_text(&self) -> String {
+        let row = BUFFER_HEIGHT - 1;
+        let line: Vec<char> = self
+            .buffer
+            .chars[row]
+            .iter()
+            .map(|char| char.read().ascii_character as char)
+            .collect();
+
+        line.into_iter().collect()
+    }
+
+    pub fn clear_screen(&mut self) {
+        for row in 0..BUFFER_HEIGHT {
+            self.clear_row(row);
+        }
+    }
+
+    pub fn set_color(&mut self, foreground: Color) {
+        let background = Color::Black;
+        self.color_code = ColorCode::new(foreground, background);
+    }
+
+    pub fn println_with_color(&mut self, s: &str, color: Color) {
+        self.set_color(color);
+        self.write_string(s);
+        self.write_byte(b'\n');
+    }
+
+    pub fn print_with_color(&mut self, s: &str, color: Color) {
+        self.set_color(color);
+        self.write_string(s);
+    }
+
+    pub fn backspace(&mut self) {
+        if self.column_position > 0 {
+            self.column_position -= 1;
+            let row = BUFFER_HEIGHT - 1;
+            let col = self.column_position;
+            self.buffer.chars[row][col].write(ScreenChar {
+                ascii_character: b' ',
+                color_code: self.color_code,
+            });
+        }
+    }
 }
 
 impl fmt::Write for Writer {
@@ -171,8 +219,51 @@ pub fn _print(args: fmt::Arguments) {
     use x86_64::instructions::interrupts;
 
     interrupts::without_interrupts(|| {
+        WRITER.lock().set_color(Color::White);
         WRITER.lock().write_fmt(args).unwrap();
     });
+}
+
+pub fn _backspace() {
+    use x86_64::instructions::interrupts;
+
+    interrupts::without_interrupts(|| {
+        WRITER.lock().backspace();
+    });
+}
+
+pub fn _println_with_color(s: &str, color: Color) {
+    use x86_64::instructions::interrupts;
+
+
+    interrupts::without_interrupts(|| {
+        WRITER.lock().println_with_color(s, color);
+    });
+}
+
+pub fn _print_with_color(s: &str, color: Color) {
+    use x86_64::instructions::interrupts;
+
+    interrupts::without_interrupts(|| {
+        WRITER.lock().print_with_color(s, color);
+    });
+}
+
+
+pub fn _get_current_line() -> String {
+    use x86_64::instructions::interrupts;
+
+    interrupts::without_interrupts(|| {
+        WRITER.lock().current_line_text()
+    })
+}
+
+pub fn _clear_screen() {
+    use x86_64::instructions::interrupts;
+
+    interrupts::without_interrupts(|| {
+        WRITER.lock().clear_screen()
+    })
 }
 
 #[test_case]

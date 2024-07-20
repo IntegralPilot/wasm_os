@@ -25,6 +25,7 @@ name = "blog_os"
 version = "0.1.0"
 dependencies = [
  "bootloader",
+ "breadcrumbs",
  "conquer-once",
  "crossbeam-queue",
  "futures-util",
@@ -32,7 +33,7 @@ dependencies = [
  "linked_list_allocator",
  "pc-keyboard",
  "pic8259",
- "spin",
+ "spin 0.5.2",
  "uart_16550",
  "volatile 0.2.7",
  "x86_64",
@@ -43,6 +44,16 @@ name = "bootloader"
 version = "0.9.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "365861702868e2a37b4247aaecc7bd8f4389baec8d025497ad8ba7ff37ee9440"
+
+[[package]]
+name = "breadcrumbs"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "01655803b789030832557fd70d3752589900f77b50ed0341ac6143e0b240c91d"
+dependencies = [
+ "lazy_static",
+ "spin 0.9.8",
+]
 
 [[package]]
 name = "conquer-once"
@@ -105,7 +116,7 @@ version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 dependencies = [
- "spin",
+ "spin 0.5.2",
 ]
 
 [[package]]
@@ -164,6 +175,15 @@ name = "spin"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
+
+[[package]]
+name = "spin"
+version = "0.9.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
+dependencies = [
+ "lock_api",
+]
 
 [[package]]
 name = "spinning_top"

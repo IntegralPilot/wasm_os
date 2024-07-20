@@ -6,19 +6,46 @@
 
 extern crate alloc;
 
-use blog_os::println;
-use blog_os::task::{executor::Executor, keyboard, Task};
+use alloc::vec;
+use blog_os::serial_println;
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
+use lazy_static::lazy_static;
 
 entry_point!(kernel_main);
+
+struct WasmOSLogListener;
+
+lazy_static! {
+    static ref WATCHING_CHANNELS: alloc::vec::Vec<&'static str> = vec![""];
+}
+
+impl breadcrumbs::LogListener for WasmOSLogListener {
+    fn on_log(&mut self, log: breadcrumbs::Log) {
+        #[cfg(not(debug_assertions))]
+        if log.level.is_at_least(LogLevel::Warn) {
+            serial_println!("{}", log);
+        } else {
+            log.remove();
+        }
+        #[cfg(debug_assertions)]
+        if WATCHING_CHANNELS.contains(&log.channel.as_str()) {
+            serial_println!("{}", log);
+        } 
+        #[cfg(debug_assertions)]
+        if !log.level.is_at_least(breadcrumbs::LogLevel::Warn) {
+            log.remove();
+        }
+    }
+}
+    
+
 
 fn kernel_main(boot_info: &'static BootInfo) -> ! {
     use blog_os::allocator;
     use blog_os::memory::{self, BootInfoFrameAllocator};
     use x86_64::VirtAddr;
 
-    println!("Hello World{}", "!");
     blog_os::init();
 
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
@@ -30,16 +57,15 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     #[cfg(test)]
     test_main();
 
-    let mut executor = Executor::new();
-    executor.spawn(Task::new(example_task()));
-    executor.spawn(Task::new(keyboard::print_keypresses()));
-    executor.run();
+    loop {};
 }
 
 /// This function is called on panic.
 #[cfg(not(test))]
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
+    use blog_os::println;
+
     println!("{}", info);
     blog_os::hlt_loop();
 }
@@ -48,15 +74,6 @@ fn panic(info: &PanicInfo) -> ! {
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     blog_os::test_panic_handler(info)
-}
-
-async fn async_number() -> u32 {
-    42
-}
-
-async fn example_task() {
-    let number = async_number().await;
-    println!("async number: {}", number);
 }
 
 #[test_case]
