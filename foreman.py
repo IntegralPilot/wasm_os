@@ -7,11 +7,16 @@ import shutil
 import subprocess
 
 persist = False
+forceRebuild = False
 
 # check if the argument --persist is passed
 if "--persist" in os.sys.argv:
     persist = True
     print("|-🔒 Persistence mode enabled: won't stop if there's a build failure")
+
+if "--force-rebuild" in os.sys.argv:
+    forceRebuild = True
+    print("|-🧱 Forcing a rebuild of all apps")
 
 # Get a list of folders in the apps directory
 apps = os.listdir("apps")
@@ -27,9 +32,16 @@ for app in apps:
 
     wasm_file_age = os.path.getmtime(f"apps/{app}/main.wasm") if os.path.exists(f"apps/{app}/main.wasm") else 0
     src_files = os.listdir(f"apps/{app}/src")
+
+    # see if there's a .foremanignore file in the app directory
+    if os.path.exists(f"apps/{app}/.foremanignore"):
+        with open(f"apps/{app}/.foremanignore", "r") as f:
+            ignore_files = f.read().split("\n")
+            src_files = [file for file in src_files if file not in ignore_files]
+
     src_files_age = max([os.path.getmtime(f"apps/{app}/src/{file}") for file in src_files])
 
-    if src_files_age > wasm_file_age:
+    if (src_files_age > wasm_file_age) or forceRebuild:
         print(f" |-🔧 Building {app}...")
         if os.path.exists(f"apps/{app}/main.wasm"):
             subprocess.run(f"cd apps/{app} && make clean", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)

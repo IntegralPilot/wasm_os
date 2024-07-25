@@ -6,6 +6,37 @@
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
+use alloc::sync::Arc;
+use lazy_static::lazy_static;
+use spin::Mutex;
+use vga_buffer::_backspace;
+
+lazy_static! {
+    static ref CURRENT_BYTE_IN_STDIN: Arc<Mutex<char>> = Arc::new(Mutex::new('\0'));
+}
+
+pub fn set_current_byte_in_stdin(byte: char) {
+    /* breadcrumbs::log!(
+        breadcrumbs::LogLevel::Verbose,
+        "stdin-bytes",
+        format!("Setting current byte in stdin to: {}", byte)
+    ); */
+    if byte != '\x08' {
+        print!("{}", byte);
+    } else {
+        _backspace();
+    }
+
+    *CURRENT_BYTE_IN_STDIN.lock() = byte;
+}
+
+pub fn get_current_byte_in_stdin() -> char {
+    let stdin = *CURRENT_BYTE_IN_STDIN.lock();
+    // set it to \0 so we know it's been read
+    *CURRENT_BYTE_IN_STDIN.lock() = '\0';
+    stdin
+}
+
 extern crate alloc;
 use core::panic::PanicInfo;
 

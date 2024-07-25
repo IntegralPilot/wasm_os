@@ -1,4 +1,6 @@
-use crate::{print, println};
+use crate::println;
+use crate::set_current_byte_in_stdin;
+use alloc::{boxed::Box, format, string::ToString};
 use conquer_once::spin::OnceCell;
 use core::{
     pin::Pin,
@@ -16,7 +18,7 @@ static WAKER: AtomicWaker = AtomicWaker::new();
 
 /// Called by the keyboard interrupt handler
 ///
-/// Must not block or allocate.
+/// Will block AND allocate
 pub(crate) fn add_scancode(scancode: u8) {
     if let Ok(queue) = SCANCODE_QUEUE.try_get() {
         if let Err(_) = queue.push(scancode) {
@@ -66,7 +68,27 @@ impl Stream for ScancodeStream {
     }
 }
 
-pub async fn print_keypresses() {
+pub(crate) fn handle_keypress(scancode: u8) {
+    let mut keyboard = Keyboard::new(
+        ScancodeSet1::new(),
+        layouts::Us104Key,
+        HandleControl::Ignore,
+    );
+    if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
+        if let Some(key) = keyboard.process_keyevent(key_event) {
+            match key {
+                DecodedKey::Unicode(character) => set_current_byte_in_stdin(character),
+                DecodedKey::RawKey(key) => breadcrumbs::log!(
+                    breadcrumbs::LogLevel::Warn,
+                    "handle_keypresses",
+                    format!("Unhandled RawKey: {:?}", key)
+                ),
+            }
+        }
+    }
+}
+
+pub async fn handle_keypresses(set_stdin_byte: Box<dyn Fn(char)>) {
     let mut scancodes = ScancodeStream::new();
     let mut keyboard = Keyboard::new(
         ScancodeSet1::new(),
@@ -78,8 +100,12 @@ pub async fn print_keypresses() {
         if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
             if let Some(key) = keyboard.process_keyevent(key_event) {
                 match key {
-                    DecodedKey::Unicode(character) => print!("{}", character),
-                    DecodedKey::RawKey(key) => print!("{:?}", key),
+                    DecodedKey::Unicode(character) => set_stdin_byte(character),
+                    DecodedKey::RawKey(key) => breadcrumbs::log!(
+                        breadcrumbs::LogLevel::Warn,
+                        "handle_keypresses",
+                        format!("Unhandled RawKey: {:?}", key)
+                    ),
                 }
             }
         }
