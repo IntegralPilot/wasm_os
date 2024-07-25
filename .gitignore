@@ -1,4 +1,15 @@
-/target
+**/target
 **/*.rs.bk
 
 .vscode
+
+**/*.wasm
+
+./rootfs
+
+**/*.foreman
+
+apps/**/node_modules
+apps/**/build
+
+rootfs

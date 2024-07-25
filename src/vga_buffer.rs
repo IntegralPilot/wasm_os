@@ -1,9 +1,9 @@
+use alloc::string::String;
+use alloc::vec::Vec;
 use core::fmt;
 use lazy_static::lazy_static;
 use spin::Mutex;
 use volatile::Volatile;
-use alloc::string::String;
-use alloc::vec::Vec;
 
 lazy_static! {
     /// A global `Writer` instance that can be used for printing to the VGA text buffer.
@@ -146,9 +146,7 @@ impl Writer {
 
     pub fn current_line_text(&self) -> String {
         let row = BUFFER_HEIGHT - 1;
-        let line: Vec<char> = self
-            .buffer
-            .chars[row]
+        let line: Vec<char> = self.buffer.chars[row]
             .iter()
             .map(|char| char.read().ascii_character as char)
             .collect();
@@ -164,6 +162,10 @@ impl Writer {
 
     pub fn set_color(&mut self, foreground: Color) {
         let background = Color::Black;
+        self.color_code = ColorCode::new(foreground, background);
+    }
+
+    pub fn set_both_colors(&mut self, foreground: Color, background: Color) {
         self.color_code = ColorCode::new(foreground, background);
     }
 
@@ -187,6 +189,17 @@ impl Writer {
                 ascii_character: b' ',
                 color_code: self.color_code,
             });
+        }
+    }
+
+    pub fn fill_screen_with_colour(&mut self, color: Color) {
+        for row in 0..BUFFER_HEIGHT {
+            for col in 0..BUFFER_WIDTH {
+                self.buffer.chars[row][col].write(ScreenChar {
+                    ascii_character: b' ',
+                    color_code: ColorCode::new(color, color),
+                });
+            }
         }
     }
 }
@@ -235,9 +248,18 @@ pub fn _backspace() {
 pub fn _println_with_color(s: &str, color: Color) {
     use x86_64::instructions::interrupts;
 
-
     interrupts::without_interrupts(|| {
         WRITER.lock().println_with_color(s, color);
+    });
+}
+
+pub fn _println_with_both_colors(s: &str, foreground: Color, background: Color) {
+    use x86_64::instructions::interrupts;
+
+    interrupts::without_interrupts(|| {
+        WRITER.lock().set_both_colors(foreground, background);
+        WRITER.lock().write_string(s);
+        WRITER.lock().write_byte(b'\n');
     });
 }
 
@@ -249,21 +271,31 @@ pub fn _print_with_color(s: &str, color: Color) {
     });
 }
 
+pub fn _print_with_both_colors(s: &str, foreground: Color, background: Color) {
+    use x86_64::instructions::interrupts;
+
+    interrupts::without_interrupts(|| {
+        WRITER.lock().set_both_colors(foreground, background);
+        WRITER.lock().write_string(s);
+    });
+}
 
 pub fn _get_current_line() -> String {
     use x86_64::instructions::interrupts;
 
-    interrupts::without_interrupts(|| {
-        WRITER.lock().current_line_text()
-    })
+    interrupts::without_interrupts(|| WRITER.lock().current_line_text())
 }
 
 pub fn _clear_screen() {
     use x86_64::instructions::interrupts;
 
-    interrupts::without_interrupts(|| {
-        WRITER.lock().clear_screen()
-    })
+    interrupts::without_interrupts(|| WRITER.lock().clear_screen())
+}
+
+pub fn _fill_screen_with_colour(color: Color) {
+    use x86_64::instructions::interrupts;
+
+    interrupts::without_interrupts(|| WRITER.lock().fill_screen_with_colour(color))
 }
 
 #[test_case]

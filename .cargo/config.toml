@@ -9,4 +9,5 @@ target = "x86_64-blog_os.json"
 runner = "bootimage runner"
 
 [alias]
-runx = "run -- -display none -serial file:serial.log -curses"
+runx = " run -- -m 1G -serial stdio"
+runnogtk = "run -- -display none -serial file:serial.log -curses"

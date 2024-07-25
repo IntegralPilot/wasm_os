@@ -22,6 +22,8 @@ pic8259 = "0.10.1"
 pc-keyboard = "0.7.0"
 linked_list_allocator = "0.9.0"
 breadcrumbs = "0.1.5"
+log = { version = "0.4.22", default-features = false }
+tinywasm = { version = "0.7.0", default-features = false, features = ["parser", "tinywasm-parser" ] }
 
 [dependencies.lazy_static]
 version = "1.0"
