@@ -1,0 +1,23 @@
+{
+    "name": "helloworld-as",
+    "version": "1.0.0",
+    "description": "",
+    "scripts": {
+      "asbuild:debug": "asc src/main.ts --target debug",
+      "asbuild:release": "asc src/main.ts --target release",
+      "asbuild": "npm run asbuild:debug && npm run asbuild:release",
+      "start": "npx serve ."
+    },
+    "author": "",
+    "license": "ISC",
+    "devDependencies": {
+      "assemblyscript": "^0.27.29"
+    },
+    "type": "module",
+    "exports": {
+      ".": {
+        "import": "./build/release.js",
+        "types": "./build/release.d.ts"
+      }
+    }
+  }

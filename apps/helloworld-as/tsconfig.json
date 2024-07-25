@@ -1,0 +1,5 @@
+{
+    "extends": "assemblyscript/std/assembly.json",
+    "include": [
+      "./src/**.as" ]
+}

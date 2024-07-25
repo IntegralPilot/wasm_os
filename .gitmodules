@@ -1,0 +1,3 @@
+[submodule "wamr-rust-sdk"]
+	path = wamr-rust-sdk
+	url = https://github.com/bytecodealliance/wamr-rust-sdk
