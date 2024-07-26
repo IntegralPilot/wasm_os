@@ -9,8 +9,6 @@ extern crate alloc;
 use alloc::string::ToString;
 use alloc::sync::Arc;
 use alloc::{format, vec};
-use blog_os::task::executor::Executor;
-use blog_os::task::Task;
 use blog_os::{serial_println, vga_buffer::_clear_screen};
 use bootloader::{entry_point, BootInfo};
 use breadcrumbs::{log, LogLevel};
@@ -102,9 +100,6 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
             format!("Error setting logger: {:?}", e)
         ),
     }
-    let mut executor = Executor::new();
-
-    executor.spawn(Task::new(async {
         match run_from_bytes(&[
             0, 97, 115, 109, 1, 0, 0, 0, 1, 8, 2, 96, 1, 127, 0, 96, 0, 0, 2, 15, 1, 3, 101, 110,
             118, 7, 112, 117, 116, 99, 104, 97, 114, 0, 0, 3, 2, 1, 1, 5, 3, 1, 0, 2, 6, 8, 1, 127,
@@ -136,10 +131,8 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
         ]) {
             Ok(_) => serial_println!("Wasm executed successfully"),
             Err(e) => serial_println!("Error executing Wasm: {:?}", e),
-        }
-    }));
+        };
 
-    executor.spawn(Task::new(async {
         match run_from_bytes(&[
             0, 97, 115, 109, 1, 0, 0, 0, 1, 14, 3, 96, 1, 127, 0, 96, 2, 127, 127, 1, 127, 96, 0,
             0, 2, 15, 1, 3, 101, 110, 118, 7, 112, 117, 116, 99, 104, 97, 114, 0, 0, 3, 3, 2, 1, 2,
@@ -189,9 +182,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
             Ok(_) => serial_println!("Wasm executed successfully"),
             Err(e) => serial_println!("Error executing Wasm: {:?}", e),
         }
-    }));
 
-    executor.spawn(Task::new(async {
         match run_from_bytes(&[
             0, 97, 115, 109, 1, 0, 0, 0, 1, 13, 3, 96, 1, 127, 0, 96, 0, 0, 96, 2, 127, 127, 0, 2,
             15, 1, 3, 101, 110, 118, 7, 112, 117, 116, 99, 104, 97, 114, 0, 0, 3, 3, 2, 1, 2, 5, 3,
@@ -228,9 +219,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
             Ok(_) => serial_println!("Wasm executed successfully"),
             Err(e) => serial_println!("Error executing Wasm: {:?}", e),
         }
-    }));
 
-    executor.spawn(Task::new(async {
         match run_from_bytes(&[
             0, 97, 115, 109, 1, 0, 0, 0, 1, 15, 3, 96, 1, 127, 0, 96, 4, 127, 127, 127, 127, 0, 96,
             0, 0, 2, 27, 2, 3, 101, 110, 118, 7, 112, 117, 116, 99, 104, 97, 114, 0, 0, 3, 101,
@@ -257,9 +246,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
             Ok(_) => serial_println!("Wasm executed successfully"),
             Err(e) => serial_println!("Error executing Wasm: {:?}", e),
         }
-    }));
 
-    executor.spawn(Task::new(async {
         match run_from_bytes(&[
             0, 97, 115, 109, 1, 0, 0, 0, 1, 12, 3, 96, 0, 1, 127, 96, 1, 127, 0, 96, 0, 0, 2, 45,
             3, 3, 101, 110, 118, 7, 103, 101, 116, 99, 104, 97, 114, 0, 0, 3, 101, 110, 118, 7,
@@ -381,15 +368,10 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
             Ok(_) => serial_println!("Wasm executed successfully"),
             Err(e) => serial_println!("Error executing Wasm: {:?}", e),
         }
-    }));
 
     #[cfg(test)]
     test_main();
 
-    #[cfg(not(test))]
-    executor.run();
-
-    #[cfg(test)]
     loop {}
 }
 
