@@ -13,6 +13,11 @@ use vga_buffer::_backspace;
 
 lazy_static! {
     static ref CURRENT_BYTE_IN_STDIN: Arc<Mutex<char>> = Arc::new(Mutex::new('\0'));
+    static ref ALLOWED_BACKSPACES: Arc<Mutex<u8>> = Arc::new(Mutex::new(0));
+}
+
+pub fn reset_allowed_backspaces() {
+    *ALLOWED_BACKSPACES.lock() = 0;
 }
 
 pub fn set_current_byte_in_stdin(byte: char) {
@@ -23,8 +28,11 @@ pub fn set_current_byte_in_stdin(byte: char) {
     ); */
     if byte != '\x08' {
         print!("{}", byte);
-    } else {
+        *ALLOWED_BACKSPACES.lock() += 1;
+    } else if *ALLOWED_BACKSPACES.lock() > 0 {
         _backspace();
+        // subtract 1 from allowed baskspaces
+        *ALLOWED_BACKSPACES.lock() -= 1;
     }
 
     *CURRENT_BYTE_IN_STDIN.lock() = byte;

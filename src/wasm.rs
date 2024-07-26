@@ -1,5 +1,5 @@
 use alloc::string::{String, ToString};
-use blog_os::{get_current_byte_in_stdin, serial_print};
+use blog_os::{get_current_byte_in_stdin, reset_allowed_backspaces, serial_print};
 use blog_os::{print, println};
 use tinywasm::{Extern, FuncContext};
 
@@ -16,6 +16,7 @@ pub fn run_from_bytes(bytes: &[u8]) -> Result<(), String> {
         "putchar",
         Extern::typed_func(|_: FuncContext<'_>, v: i32| {
             print!("{}", v as u8 as char);
+            reset_allowed_backspaces();
             Ok(())
         }),
     ) {
