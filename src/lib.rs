@@ -28,11 +28,15 @@ pub fn set_current_byte_in_stdin(byte: char) {
     ); */
     if byte != '\x08' {
         print!("{}", byte);
-        *ALLOWED_BACKSPACES.lock() += 1;
+        {
+            *ALLOWED_BACKSPACES.lock() += 1;
+        }
     } else if *ALLOWED_BACKSPACES.lock() > 0 {
         _backspace();
         // subtract 1 from allowed baskspaces
-        *ALLOWED_BACKSPACES.lock() -= 1;
+        {
+            *ALLOWED_BACKSPACES.lock() -= 1;
+        }
     }
 
     *CURRENT_BYTE_IN_STDIN.lock() = byte;
@@ -49,12 +53,14 @@ extern crate alloc;
 use core::panic::PanicInfo;
 
 pub mod allocator;
+pub mod apps;
 pub mod gdt;
 pub mod interrupts;
+pub mod keyboard;
 pub mod memory;
 pub mod serial;
-pub mod keyboard;
 pub mod vga_buffer;
+pub mod wasm;
 
 pub fn init() {
     gdt::init();

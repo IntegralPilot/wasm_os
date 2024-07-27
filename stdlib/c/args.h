@@ -1,0 +1,3 @@
+char** getargs();
+
+int getargsc();
