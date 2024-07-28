@@ -1,4 +1,5 @@
 #include <stdarg.h>
+#include <string.h>
 
 // This function is implemented in the kernel
 // We don't define it so that the clang makes the code dynamically link to it at runtime
@@ -96,36 +97,47 @@ int printf(const char *format, ...) {
     while (*format) {
         if (*format == '%') {
             format++;
-            switch (*format) {
-                case 'd': {
-                    int i = va_arg(args, int);
-                    char s[12];
-                    itoa(i, s);
-                    puts(s);
-                    while (s[count] != '\0') {
-                        count++;
-                    }
-                    break;
-                }
-                case 's': {
-                    char *s = va_arg(args, char *);
-                    puts(s);
-                    while (*s) {
-                        count++;
-                        s++;
-                    }
-                    break;
-                }
-                case 'c': {
-                    char c = va_arg(args, int);
-                    putchar(c);
+            if (strcmp(format, "lld") == 0) {
+                long long int i = va_arg(args, long long int);
+                char s[21];
+                llitoa(i, s);
+                puts(s);
+                while (s[count] != '\0') {
                     count++;
-                    break;
                 }
-                default:
-                    putchar('%');
-                    putchar(*format);
-                    count += 2;
+                format += 2; // Skip "lld"
+            } else {
+                switch (*format) {
+                    case 'd': {
+                        int i = va_arg(args, int);
+                        char s[12];
+                        itoa(i, s);
+                        puts(s);
+                        while (s[count] != '\0') {
+                            count++;
+                        }
+                        break;
+                    }
+                    case 's': {
+                        char *s = va_arg(args, char *);
+                        puts(s);
+                        while (*s) {
+                            count++;
+                            s++;
+                        }
+                        break;
+                    }
+                    case 'c': {
+                        char c = va_arg(args, int);
+                        putchar(c);
+                        count++;
+                        break;
+                    }
+                    default:
+                        putchar('%');
+                        putchar(*format);
+                        count += 2;
+                }
             }
         } else {
             putchar(*format);

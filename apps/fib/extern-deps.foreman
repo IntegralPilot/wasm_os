@@ -3,4 +3,6 @@ stdlib/c/stdio.c
 stdlib/c/stdio.h
 stdlib/c/stdlib.c
 stdlib/c/stdlib.h
+stdlib/c/string.h
+stdlib/c/string.c
 stdlib/glue/glue.c

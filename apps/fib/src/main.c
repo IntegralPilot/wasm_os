@@ -24,15 +24,15 @@ void printFib(int n)
             long long int num = prev1 + prev2;
             prev2 = prev1;
             prev1 = num;
-            printf("%d ", num);
+            printf("%lld", num);
         }
 
         // for first two terms
         if (i == 1) {
-            printf("%d ", prev2);
+            printf("%lld", prev2);
         }
         if (i == 2) {
-            printf("%d ", prev1);
+            printf("%lld", prev1);
         }
         printf("\n");
     }
