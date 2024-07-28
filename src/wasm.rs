@@ -101,8 +101,8 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
             // turn the Vec<u8> into a &[u8]
             let args = args.as_slice();
             let args_len = args.len();
-            match memory.store(33, args_len, args) {
-                Ok(_) => return Ok(33),
+            match memory.store(0, args_len, args) {
+                Ok(_) => return Ok(0),
                 Err(_) => return Ok(-1),
             }
         }),

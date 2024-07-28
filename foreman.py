@@ -32,6 +32,24 @@ for app in apps:
 
     wasm_file_age = os.path.getmtime(f"apps/{app}/main.wasm") if os.path.exists(f"apps/{app}/main.wasm") else 0
     src_files = os.listdir(f"apps/{app}/src")
+    extern_files = []
+
+    # see if there's a extern_deps.foreman file in the app directory
+    if os.path.exists(f"apps/{app}/extern-deps.foreman"):
+        with open(f"apps/{app}/extern-deps.foreman", "r") as f:
+            extern_deps = f.read().split("\n")
+            # the extern_deps are paths to files that the app should be rebuilt if they change
+            # we need to check if they're newer than the wasm file
+            # we'll add them to the src_files list if they are
+            for dep in extern_deps:
+                if os.path.exists(dep):
+                    extern_files.append(dep)
+                else:
+                    print(f"  |-❌ Error: extern_dep {dep} not found for {app}.")
+                    if not persist:
+                        exit(1)
+                    else:
+                        apps.remove(app)
 
     # see if there's a .foremanignore file in the app directory
     if os.path.exists(f"apps/{app}/.foremanignore"):
@@ -40,8 +58,9 @@ for app in apps:
             src_files = [file for file in src_files if file not in ignore_files]
 
     src_files_age = max([os.path.getmtime(f"apps/{app}/src/{file}") for file in src_files])
+    extern_files_age = max([os.path.getmtime(file) for file in extern_files]) if len(extern_files) > 0 else 0
 
-    if (src_files_age > wasm_file_age) or forceRebuild:
+    if (src_files_age > wasm_file_age) or (extern_files_age > wasm_file_age) or forceRebuild:
         print(f" |-🔧 Building {app}...")
         if os.path.exists(f"apps/{app}/main.wasm"):
             subprocess.run(f"cd apps/{app} && make clean", shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -50,8 +69,8 @@ for app in apps:
         if make_process.returncode != 0:
             print(f"  |-❌ Error building {app}.")
 
-            # write the stdout and stderr to apps/{app}/build-error.foreman
-            with open(f"apps/{app}/build-error.foreman", "w", encoding="utf-8") as f:
+            # write the stdout and stderr to apps/{app}/build-error.foreman.generated
+            with open(f"apps/{app}/build-error.foreman.generated", "w", encoding="utf-8") as f:
                 f.write(stdout.decode(errors="ignore"))
                 f.write(stderr.decode(errors="ignore"))
             
