@@ -12,13 +12,6 @@ extern "C" void _start() {
         char command[100];
         std::cin >> command;
 
-        // turn each char in command to an int, and s_cout them like this: [int, int, int, int, int, ...]
-        std::s_cout << "[";
-        for (int i = 0; i < strlen(command); i++) {
-            std::s_cout << (int)command[i] << ", ";
-        }
-        std::s_cout << "]" << std::endl;
-
         if (strcmp(command, "exit") == 0) {
             break;
         } else if (strcmp(command, "help") == 0) {

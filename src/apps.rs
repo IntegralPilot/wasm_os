@@ -25,7 +25,7 @@ pub fn register_app(name: &str, wasm_bytes: &[u8]) {
 }
 
 pub fn run_app(command_line: &str) -> Result<(), i32> {
-    //println!("Running app: {}", command_line);
+    //println!("Running app: {:?}", command_line);
     let app_name = command_line.split_whitespace().next().unwrap_or("");
     let apps;
     {
@@ -37,13 +37,13 @@ pub fn run_app(command_line: &str) -> Result<(), i32> {
     let app = apps.iter().find(|app| app.name == app_name);
     let app = match app {
         Some(app) => app,
-        None => return Err(1),
+        None => return Err(-1),
     };
     match run_from_bytes(command_line.to_string(), &app.wasm_bytes) {
         Ok(_) => Ok(()),
         Err(e) => {
             println!("Error running app: {}", e);
-            Err(2)
+            Err(-2)
         }
     }
 }

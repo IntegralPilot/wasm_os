@@ -21,32 +21,28 @@ pub fn reset_allowed_backspaces() {
 }
 
 pub fn set_current_byte_in_stdin(byte: char) {
-    /* breadcrumbs::log!(
-        breadcrumbs::LogLevel::Verbose,
-        "stdin-bytes",
-        format!("Setting current byte in stdin to: {}", byte)
-    ); */
-    if byte != '\x08' {
-        print!("{}", byte);
-        {
-            *ALLOWED_BACKSPACES.lock() += 1;
-        }
-    } else if *ALLOWED_BACKSPACES.lock() > 0 {
-        _backspace();
-        // subtract 1 from allowed baskspaces
-        {
-            *ALLOWED_BACKSPACES.lock() -= 1;
+    {
+        let mut allowed_backspaces = ALLOWED_BACKSPACES.lock();
+
+        if byte != '\x08' {
+            print!("{}", byte);
+            *allowed_backspaces += 1;
+        } else if *allowed_backspaces > 0 {
+            _backspace();
+            *allowed_backspaces -= 1;
         }
     }
-
-    *CURRENT_BYTE_IN_STDIN.lock() = byte;
+    {
+        *CURRENT_BYTE_IN_STDIN.lock() = byte;
+    }
 }
 
 pub fn get_current_byte_in_stdin() -> char {
-    let stdin = *CURRENT_BYTE_IN_STDIN.lock();
+    let mut stdin = CURRENT_BYTE_IN_STDIN.lock();
+    let current_byte = *stdin;
     // set it to \0 so we know it's been read
-    *CURRENT_BYTE_IN_STDIN.lock() = '\0';
-    stdin
+    *stdin = '\0';
+    current_byte
 }
 
 extern crate alloc;
