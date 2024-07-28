@@ -1,3 +1,1 @@
-char** getargs();
-
-int getargsc();
+char* getargs();

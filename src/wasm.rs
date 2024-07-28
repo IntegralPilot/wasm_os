@@ -14,8 +14,6 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
     let mut store = tinywasm::Store::default();
     let mut imports = tinywasm::Imports::new();
 
-    let args_a = args.clone();
-
     match imports.define(
         "env",
         "putchar",
@@ -99,7 +97,7 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
             };
             let args_clone = args.clone();
             let args = args_clone.split(' ').collect::<Vec<&str>>().join("\0");
-            let args = [args.as_bytes(), &[0u8]].concat();
+            let args = [args.as_bytes(), &[0u8], &[0u8]].concat();
             // turn the Vec<u8> into a &[u8]
             let args = args.as_slice();
             let args_len = args.len();
@@ -107,19 +105,6 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
                 Ok(_) => return Ok(33),
                 Err(_) => return Ok(-1),
             }
-        }),
-    ) {
-        Ok(_) => {}
-        Err(err) => return Err(err.to_string()),
-    }
-
-    match imports.define(
-        "env",
-        "getargsc",
-        Extern::typed_func(move |_: FuncContext<'_>, _: ()| {
-            let args_clone = args_a.clone();
-            let args = args_clone.clone().split(' ').collect::<Vec<&str>>().len();
-            Ok(args as i32)
         }),
     ) {
         Ok(_) => {}
