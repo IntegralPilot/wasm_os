@@ -6,15 +6,11 @@
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
-use alloc::sync::Arc;
-use lazy_static::lazy_static;
 use spin::Mutex;
 use vga_buffer::_backspace;
 
-lazy_static! {
-    static ref CURRENT_BYTE_IN_STDIN: Arc<Mutex<char>> = Arc::new(Mutex::new('\0'));
-    static ref ALLOWED_BACKSPACES: Arc<Mutex<u8>> = Arc::new(Mutex::new(0));
-}
+static CURRENT_BYTE_IN_STDIN: Mutex<char> = Mutex::new('\0');
+static ALLOWED_BACKSPACES: Mutex<u8> = Mutex::new(0);
 
 pub fn reset_allowed_backspaces() {
     *ALLOWED_BACKSPACES.lock() = 0;

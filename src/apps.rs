@@ -1,4 +1,4 @@
-use crate::{println, wasm::run_from_bytes};
+use crate::{interrupts::NUMBER_OF_TIMER_INTERRUPTS_SINCE_RESET, println, wasm::run_from_bytes};
 use alloc::{
     string::{String, ToString},
     sync::Arc,
@@ -25,6 +25,10 @@ pub fn register_app(name: &str, wasm_bytes: &[u8]) {
 }
 
 pub fn run_app(command_line: &str) -> Result<(), i32> {
+    {
+        let mut no = NUMBER_OF_TIMER_INTERRUPTS_SINCE_RESET.lock();
+        *no = 0;
+    }
     //println!("Running app: {:?}", command_line);
     let app_name = command_line.split_whitespace().next().unwrap_or("");
     let apps;

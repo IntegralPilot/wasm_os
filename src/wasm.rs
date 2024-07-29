@@ -4,7 +4,11 @@ use alloc::{
 };
 use tinywasm::{Extern, FuncContext, MemoryStringExt};
 
-use crate::{get_current_byte_in_stdin, print, println, reset_allowed_backspaces, serial_print};
+use crate::{
+    get_current_byte_in_stdin,
+    interrupts::{NUMBER_OF_TIMER_INTERRUPTS, NUMBER_OF_TIMER_INTERRUPTS_SINCE_RESET},
+    print, println, reset_allowed_backspaces, serial_print,
+};
 
 pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
     let module = match tinywasm::Module::parse_bytes(bytes) {
@@ -105,6 +109,32 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
                 Ok(_) => return Ok(0),
                 Err(_) => return Ok(-1),
             }
+        }),
+    ) {
+        Ok(_) => {}
+        Err(err) => return Err(err.to_string()),
+    }
+
+    match imports.define(
+        "env",
+        "timesinceboot",
+        Extern::typed_func(|_: FuncContext<'_>, _: ()| {
+            // timer interrupt occurs 200 times per second
+            let time = *NUMBER_OF_TIMER_INTERRUPTS.lock() * 50_000;
+            Ok(time as i32)
+        }),
+    ) {
+        Ok(_) => {}
+        Err(err) => return Err(err.to_string()),
+    }
+
+    match imports.define(
+        "env",
+        "cputime",
+        Extern::typed_func(|_: FuncContext<'_>, _: ()| {
+            // timer interrupt occurs 200 times per second
+            let time = *NUMBER_OF_TIMER_INTERRUPTS_SINCE_RESET.lock() * 50_000;
+            Ok(time as i32)
         }),
     ) {
         Ok(_) => {}

@@ -27,6 +27,9 @@ impl InterruptIndex {
 pub static PICS: spin::Mutex<ChainedPics> =
     spin::Mutex::new(unsafe { ChainedPics::new(PIC_1_OFFSET, PIC_2_OFFSET) });
 
+pub static NUMBER_OF_TIMER_INTERRUPTS: spin::Mutex<u32> = spin::Mutex::new(0);
+pub static NUMBER_OF_TIMER_INTERRUPTS_SINCE_RESET: spin::Mutex<u32> = spin::Mutex::new(0);
+
 lazy_static! {
     static ref IDT: InterruptDescriptorTable = {
         let mut idt = InterruptDescriptorTable::new();
@@ -72,6 +75,10 @@ extern "x86-interrupt" fn double_fault_handler(
 }
 
 extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    let mut count = NUMBER_OF_TIMER_INTERRUPTS.lock();
+    *count += 1;
+    let mut count_since_reset = NUMBER_OF_TIMER_INTERRUPTS_SINCE_RESET.lock();
+    *count_since_reset += 1;
     unsafe {
         PICS.lock()
             .notify_end_of_interrupt(InterruptIndex::Timer.as_u8());
