@@ -1,56 +1,168 @@
-#include <stddef.h>
+#include <stdarg.h>
+#include <string.h>
 
-void* malloc(size_t size);
-void free(void* ptr);
-int ptrsize(void* ptr);
+// This function is implemented in the kernel
+// We don't define it so that the clang makes the code dynamically link to it at runtime
+void putchar(int i);
 
-// make our own memcpy function
-void* memcpy(void* dest, const void* src, size_t n) {
-    char* csrc = (char*)src;
-    char* cdest = (char*)dest;
-    for (size_t i = 0; i < n; i++) {
-        cdest[i] = csrc[i];
-    }
-    return dest;
-}
-
-// make our own realloc function
-void* realloc(void* ptr, size_t new_size) {
-    if (ptr == NULL) {
-        return malloc(new_size);
-    }
-
-    // You need to keep track of the old size to properly copy the data
-    int old_size = ptrsize(ptr);
-    
-    void* new_ptr = malloc(new_size);
-    if (new_ptr == NULL) {
-        return NULL; // Allocation failed
-    }
-
-    // Copy the old data to the new location
-    memcpy(new_ptr, ptr, old_size < new_size ? old_size : new_size);
-
-    // Free the old location
-    free(ptr);
-
-    return new_ptr;
-}
-
-// A simple implementation of atoi
-int atoi(const char* str) {
-    int res = 0;
-    int sign = 1;
+void itoa(int num, char *str) {
     int i = 0;
+    int isNegative = 0;
 
-    if (str[0] == '-') {
-        sign = -1;
-        i++;
+    if (num == 0) {
+        str[i++] = '0';
+        str[i] = '\0';
+        return;
     }
 
-    for (; str[i] != '\0'; ++i) {
-        res = res * 10 + str[i] - '0';
+    if (num < 0) {
+        isNegative = 1;
+        num = -num;
     }
 
-    return sign * res;
+    while (num != 0) {
+        int rem = num % 10;
+        str[i++] = rem + '0';
+        num = num / 10;
+    }
+
+    if (isNegative)
+        str[i++] = '-';
+
+    str[i] = '\0';
+
+    // Reverse the string
+    int start = 0;
+    int end = i - 1;
+    while (start < end) {
+        char temp = str[start];
+        str[start] = str[end];
+        str[end] = temp;
+        start++;
+        end--;
+    }
+}
+
+void llitoa(long long int num, char *str) {
+    int i = 0;
+    int isNegative = 0;
+
+    if (num == 0) {
+        str[i++] = '0';
+        str[i] = '\0';
+        return;
+    }
+
+    if (num < 0) {
+        isNegative = 1;
+        num = -num;
+    }
+
+    while (num != 0) {
+        int rem = num % 10;
+        str[i++] = rem + '0';
+        num = num / 10;
+    }
+
+    if (isNegative)
+        str[i++] = '-';
+
+    str[i] = '\0';
+
+    // Reverse the string
+    int start = 0;
+    int end = i - 1;
+    while (start < end) {
+        char temp = str[start];
+        str[start] = str[end];
+        str[end] = temp;
+        start++;
+        end--;
+    }
+}
+
+void puts(const char *str) {
+    while (*str) {
+        putchar(*str);
+        str++;
+    }
+}
+
+int vprintf(const char *format, va_list args) {
+    int count = 0;
+
+    while (*format) {
+        if (*format == '%') {
+            format++;
+            switch (*format) {
+                case 'd': {
+                    int i = va_arg(args, int);
+                    char s[12];
+                    itoa(i, s);
+                    puts(s);
+                    count += strlen(s);
+                    break;
+                }
+                case 's': {
+                    char *s = va_arg(args, char *);
+                    puts(s);
+                    count += strlen(s);
+                    break;
+                }
+                case 'c': {
+                    char c = (char)va_arg(args, int); // promote char to int for va_arg
+                    putchar(c);
+                    count++;
+                    break;
+                }
+                case 'p': {
+                    // Print the address in hexadecimal
+                    unsigned long p = va_arg(args, unsigned long);
+                    char s[21];
+                    s[0] = '0';
+                    s[1] = 'x';
+                    llitoa(p, s + 2);
+                    puts(s);
+                    count += strlen(s);
+                    break;
+                }
+                case 'l': {
+                    format++;
+                    if (*format == 'l' && *(format + 1) == 'd') { // "lld"
+                        format += 2;
+                        long long int i = va_arg(args, long long int);
+                        char s[21];
+                        llitoa(i, s);
+                        puts(s);
+                        count += strlen(s);
+                    } else {
+                        // Handle invalid specifier
+                        putchar('%');
+                        putchar('l');
+                        putchar(*format);
+                        count += 3;
+                    }
+                    break;
+                }
+                default:
+                    putchar('%');
+                    putchar(*format);
+                    count += 2;
+            }
+        } else {
+            putchar(*format);
+            count++;
+        }
+        format++;
+    }
+
+    return count;
+}
+
+int printf(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    int count = vprintf(format, args);
+    va_end(args);
+    return count;
 }
