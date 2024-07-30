@@ -88,66 +88,66 @@ void puts(const char *str) {
     }
 }
 
-int printf(const char *format, ...) {
-    va_list args;
-    va_start(args, format);
-
+int vprintf(const char *format, va_list args) {
     int count = 0;
 
     while (*format) {
         if (*format == '%') {
             format++;
-            if (strcmp(format, "lld") == 0) {
-                long long int i = va_arg(args, long long int);
-                char s[21];
-                llitoa(i, s);
-                puts(s);
-                while (s[count] != '\0') {
+            switch (*format) {
+                case 'd': {
+                    int i = va_arg(args, int);
+                    char s[12];
+                    itoa(i, s);
+                    puts(s);
+                    count += strlen(s);
+                    break;
+                }
+                case 's': {
+                    char *s = va_arg(args, char *);
+                    puts(s);
+                    count += strlen(s);
+                    break;
+                }
+                case 'c': {
+                    char c = (char)va_arg(args, int); // promote char to int for va_arg
+                    putchar(c);
                     count++;
+                    break;
                 }
-                format += 2; // Skip "lld"
-            } else {
-                switch (*format) {
-                    case 'd': {
-                        int i = va_arg(args, int);
-                        char s[12];
-                        itoa(i, s);
-                        puts(s);
-                        while (s[count] != '\0') {
-                            count++;
-                        }
-                        break;
-                    }
-                    case 's': {
-                        char *s = va_arg(args, char *);
-                        puts(s);
-                        while (*s) {
-                            count++;
-                            s++;
-                        }
-                        break;
-                    }
-                    case 'c': {
-                        char c = va_arg(args, int);
-                        putchar(c);
-                        count++;
-                        break;
-                    }
-                    case 'p': {
-                        // Print the address in hexadecimal
-                        unsigned long p = va_arg(args, unsigned long);
+                case 'p': {
+                    // Print the address in hexadecimal
+                    unsigned long p = va_arg(args, unsigned long);
+                    char s[21];
+                    s[0] = '0';
+                    s[1] = 'x';
+                    llitoa(p, s + 2);
+                    puts(s);
+                    count += strlen(s);
+                    break;
+                }
+                case 'l': {
+                    format++;
+                    if (*format == 'l' && *(format + 1) == 'd') { // "lld"
+                        format += 2;
+                        long long int i = va_arg(args, long long int);
                         char s[21];
-                        s[0] = '0';
-                        s[1] = 'x';
-                        llitoa(p, s + 2);
+                        llitoa(i, s);
                         puts(s);
-                        break;
-                    }
-                    default:
+                        count += strlen(s);
+                    } else {
+                        // Handle invalid specifier
                         putchar('%');
+                        putchar('l');
                         putchar(*format);
-                        count += 2;
+                        count += 3;
+                    }
+                    break;
                 }
+                default:
+                    putchar('%');
+                    putchar(*format);
+                    count += 2;
             }
         } else {
             putchar(*format);
@@ -156,6 +156,13 @@ int printf(const char *format, ...) {
         format++;
     }
 
+    return count;
+}
+
+int printf(const char *format, ...) {
+    va_list args;
+    va_start(args, format);
+    int count = vprintf(format, args);
     va_end(args);
     return count;
 }

@@ -7,3 +7,12 @@ int strcmp(const char* s1, const char* s2) {
     // This correctly handles the case where one string might be shorter than the other
     return (unsigned char)*s1 - (unsigned char)*s2;
 }
+
+int strlen(const char* str) {
+    int len = 0;
+    while (*str) {
+        len++;
+        str++;
+    }
+    return len;
+}
