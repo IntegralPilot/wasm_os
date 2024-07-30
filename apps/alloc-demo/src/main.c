@@ -10,6 +10,9 @@ void _start() {
         arr[i] = i;
     }
 
+    // print the address of the memory we got
+    printf("Address of the memory we got: %p\n", arr);
+
     for (int i = 0; i < 5; i++) {
         printf("%d ", arr[i]);
     }
@@ -24,6 +27,9 @@ void _start() {
         printf("%d ", arr[i]);
     }
     printf("\n");
+
+    // print the address of the memory we got
+    printf("Address of the memory we got: %p\n", arr);
 
     free(arr);
 

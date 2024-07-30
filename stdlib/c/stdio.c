@@ -133,6 +133,16 @@ int printf(const char *format, ...) {
                         count++;
                         break;
                     }
+                    case 'p': {
+                        // Print the address in hexadecimal
+                        unsigned long p = va_arg(args, unsigned long);
+                        char s[21];
+                        s[0] = '0';
+                        s[1] = 'x';
+                        llitoa(p, s + 2);
+                        puts(s);
+                        break;
+                    }
                     default:
                         putchar('%');
                         putchar(*format);
