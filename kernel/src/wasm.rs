@@ -6,9 +6,7 @@ use spin::Mutex;
 use tinywasm::{Extern, FuncContext, MemoryStringExt};
 
 use crate::{
-    get_current_byte_in_stdin,
-    interrupts::{NUMBER_OF_TIMER_INTERRUPTS, NUMBER_OF_TIMER_INTERRUPTS_SINCE_RESET},
-    print, println, reset_allowed_backspaces, serial_print,
+    get_current_byte_in_stdin, interrupts::{NUMBER_OF_TIMER_INTERRUPTS, NUMBER_OF_TIMER_INTERRUPTS_SINCE_RESET}, reset_allowed_backspaces, serial_print, serial_println
 };
 
 #[derive(Clone, Copy)]
@@ -52,19 +50,25 @@ fn free(allocations: Vec<Allocation>, ptr: usize) -> Result<Vec<Allocation>, Str
 }
 
 pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
+    serial_println!("running from bytes");
     static MEMORY_ALLOCATIONS: Mutex<Vec<Allocation>> = Mutex::new(Vec::new());
+    serial_println!("55");
     let module = match tinywasm::Module::parse_bytes(bytes) {
         Ok(module) => module,
         Err(err) => return Err(err.to_string()),
     };
+    serial_println!("60");
     let mut store = tinywasm::Store::default();
+    serial_println!("62");
     let mut imports = tinywasm::Imports::new();
+
+    serial_println!("Starting defining imports");
 
     match imports.define(
         "env",
         "putchar",
         Extern::typed_func(|_: FuncContext<'_>, v: i32| {
-            print!("{}", v as u8 as char);
+            serial_print!("{}", v as u8 as char);
             reset_allowed_backspaces();
             Ok(())
         }),
@@ -101,7 +105,7 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         "env",
         "abort",
         Extern::typed_func(|_: FuncContext<'_>, _: (i32, i32, i32, i32)| {
-            println!("abort called");
+            serial_println!("abort called");
             Ok(())
         }),
     ) {
@@ -244,11 +248,15 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         Err(err) => return Err(err.to_string()),
     }
 
+    serial_println!("Finished defining imports");
+
     // instantiating the module will run the start function
-    let instance = match module.instantiate(&mut store, Some(imports)) {
+    let instance = match tinywasm::ModuleInstance::instantiate(&mut store, module, Some(imports)) {
         Ok(instance) => instance,
         Err(err) => return Err(err.to_string()),
     };
+
+    serial_println!("Finished instantiating module");
 
     // check if there's a function called "main" exported
     match instance.exported_func::<(), ()>(&mut store, "main") {
@@ -259,7 +267,13 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
                 Err(err) => return Err(err.to_string()),
             }
         }
-        Err(_) => {}
+        Err(_) => {
+            // run the normal start function
+            match instance.start(&mut store) {
+                Ok(_) => {}
+                Err(err) => return Err(err.to_string()),
+            }
+        }
     }
 
     Ok(())

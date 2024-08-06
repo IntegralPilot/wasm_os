@@ -1,0 +1,4 @@
+# set target to x86-unknown-none
+
+[build]
+target = "x86_64-unknown-none"

@@ -1,4 +1,4 @@
-use crate::{interrupts::NUMBER_OF_TIMER_INTERRUPTS_SINCE_RESET, println, wasm::run_from_bytes};
+use crate::{interrupts::NUMBER_OF_TIMER_INTERRUPTS_SINCE_RESET, serial_println, wasm::run_from_bytes};
 use alloc::{
     string::{String, ToString},
     sync::Arc,
@@ -18,6 +18,7 @@ lazy_static! {
 }
 
 pub fn register_app(name: &str, wasm_bytes: &[u8]) {
+    serial_println!("Registering app: {}", name);
     REGISTERED_APPS.lock().push(App {
         name: name.to_string(),
         wasm_bytes: wasm_bytes.to_vec(),
@@ -46,7 +47,7 @@ pub fn run_app(command_line: &str) -> Result<(), i32> {
     match run_from_bytes(command_line.to_string(), &app.wasm_bytes) {
         Ok(_) => Ok(()),
         Err(e) => {
-            println!("Error running app: {}", e);
+            serial_println!("Error running app: {}", e);
             Err(-2)
         }
     }

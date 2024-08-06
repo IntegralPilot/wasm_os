@@ -43,8 +43,11 @@ struct Selectors {
 }
 
 pub fn init() {
-    use x86_64::instructions::segmentation::{Segment, CS};
+    use x86_64::instructions::segmentation::{Segment, CS, SS};
     use x86_64::instructions::tables::load_tss;
+
+    // set SS to 0
+    unsafe { SS::set_reg(x86_64::registers::segmentation::SegmentSelector(0)) };
 
     GDT.0.load();
     unsafe {

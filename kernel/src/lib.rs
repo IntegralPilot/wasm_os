@@ -21,7 +21,7 @@ pub fn set_current_byte_in_stdin(byte: char) {
         let mut allowed_backspaces = ALLOWED_BACKSPACES.lock();
 
         if byte != '\x08' {
-            print!("{}", byte);
+            serial_print!("{}", byte);
             *allowed_backspaces += 1;
         } else if *allowed_backspaces > 0 {
             _backspace();
@@ -113,21 +113,15 @@ pub fn hlt_loop() -> ! {
 }
 
 #[cfg(test)]
-use bootloader::{entry_point, BootInfo};
+use bootloader_api::{entry_point, BootInfo};
 
 #[cfg(test)]
 entry_point!(test_kernel_main);
 
 /// Entry point for `cargo xtest`
 #[cfg(test)]
-fn test_kernel_main(_boot_info: &'static BootInfo) -> ! {
+fn test_kernel_main(_boot_info: &'static mut BootInfo) -> ! {
     init();
     test_main();
     hlt_loop();
-}
-
-#[cfg(test)]
-#[panic_handler]
-fn panic(info: &PanicInfo) -> ! {
-    test_panic_handler(info)
 }

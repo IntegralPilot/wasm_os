@@ -1,0 +1,3 @@
+[submodule "kernel/tinywasm"]
+	path = kernel/tinywasm
+	url = https://github.com/explodingcamera/tinywasm
