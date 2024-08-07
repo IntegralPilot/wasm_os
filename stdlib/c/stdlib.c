@@ -39,6 +39,12 @@ void* realloc(void* ptr, size_t new_size) {
 
 // A simple implementation of atoi
 int atoi(const char* str) {
+    // first check that there are not any non-digit characters
+    for (int i = 0; str[i] != '\0'; i++) {
+        if (str[i] < '0' || str[i] > '9') {
+            return 0;
+        }
+    }
     int res = 0;
     int sign = 1;
     int i = 0;

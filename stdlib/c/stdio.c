@@ -1,9 +1,13 @@
 #include <stdarg.h>
 #include <string.h>
+#include <stdint.h> // Include for uintptr_t
 
 // This function is implemented in the kernel
 // We don't define it so that the clang makes the code dynamically link to it at runtime
 void putchar(int i);
+
+// Use macros for digit conversion to avoid magic numbers
+#define TO_DIGIT(n) ((n) + '0')
 
 void itoa(int num, char *str) {
     int i = 0;
@@ -22,27 +26,26 @@ void itoa(int num, char *str) {
 
     while (num != 0) {
         int rem = num % 10;
-        str[i++] = rem + '0';
+        str[i++] = TO_DIGIT(rem); // Use macro
         num = num / 10;
     }
 
-    if (isNegative)
+    if (isNegative) {
         str[i++] = '-';
+    }
 
-    str[i] = '\0';
-
-    // Reverse the string
-    int start = 0;
-    int end = i - 1;
-    while (start < end) {
+    // Reverse the string (could be optimized)
+    for (int start = 0, end = i - 1; start < end; start++, end--) {
         char temp = str[start];
         str[start] = str[end];
         str[end] = temp;
-        start++;
-        end--;
     }
+
+    str[i] = '\0';
 }
 
+// This function is almost identical to itoa. 
+// Consider refactoring to avoid code duplication
 void llitoa(long long int num, char *str) {
     int i = 0;
     int isNegative = 0;
@@ -60,25 +63,22 @@ void llitoa(long long int num, char *str) {
 
     while (num != 0) {
         int rem = num % 10;
-        str[i++] = rem + '0';
+        str[i++] = TO_DIGIT(rem); // Use macro
         num = num / 10;
     }
 
-    if (isNegative)
+    if (isNegative) {
         str[i++] = '-';
+    }
 
-    str[i] = '\0';
-
-    // Reverse the string
-    int start = 0;
-    int end = i - 1;
-    while (start < end) {
+    // Reverse the string (could be optimized)
+    for (int start = 0, end = i - 1; start < end; start++, end--) {
         char temp = str[start];
         str[start] = str[end];
         str[end] = temp;
-        start++;
-        end--;
     }
+
+    str[i] = '\0';
 }
 
 void puts(const char *str) {
@@ -97,7 +97,7 @@ int vprintf(const char *format, va_list args) {
             switch (*format) {
                 case 'd': {
                     int i = va_arg(args, int);
-                    char s[12];
+                    char s[12]; 
                     itoa(i, s);
                     puts(s);
                     count += strlen(s);
@@ -110,41 +110,48 @@ int vprintf(const char *format, va_list args) {
                     break;
                 }
                 case 'c': {
-                    char c = (char)va_arg(args, int); // promote char to int for va_arg
+                    char c = (char)va_arg(args, int); 
                     putchar(c);
                     count++;
                     break;
                 }
                 case 'p': {
-                    // Print the address in hexadecimal
-                    unsigned long p = va_arg(args, unsigned long);
+                    // Use uintptr_t for pointer conversion
+                    uintptr_t p = va_arg(args, uintptr_t);
                     char s[21];
                     s[0] = '0';
                     s[1] = 'x';
-                    llitoa(p, s + 2);
+                    // Use a loop and bit shifting for hex conversion
+                    for (int i = sizeof(p) * 2 - 1; i >= 0; --i) {
+                        int digit = (p >> (i * 4)) & 0xF;
+                        s[2 + sizeof(p) * 2 - 1 - i] = (digit < 10) ? TO_DIGIT(digit) : (digit - 10 + 'a');
+                    }
+                    s[sizeof(s) - 1] = '\0';
                     puts(s);
                     count += strlen(s);
                     break;
                 }
-                case 'l': {
-                    format++;
-                    if (*format == 'l' && *(format + 1) == 'd') { // "lld"
-                        format += 2;
-                        long long int i = va_arg(args, long long int);
-                        char s[21];
-                        llitoa(i, s);
-                        puts(s);
-                        count += strlen(s);
-                    } else {
-                        // Handle invalid specifier
-                        putchar('%');
-                        putchar('l');
-                        putchar(*format);
-                        count += 3;
-                    }
-                    break;
-                }
-                default:
+case 'l': {
+    format++;
+    if (*format == 'l' && *(format + 1) == 'd') { 
+        // Only increment format once here
+        format++; 
+        long long int i = va_arg(args, long long int);
+        char s[21];
+        llitoa(i, s);
+        puts(s);
+        count += strlen(s);
+    } else {
+        // Handle invalid specifier
+        putchar('%');
+        putchar('l');
+        putchar(*format);
+        count += 3;
+    }
+    break;
+}
+                default: 
+                    // Handle other invalid specifiers
                     putchar('%');
                     putchar(*format);
                     count += 2;
