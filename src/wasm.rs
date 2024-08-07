@@ -247,7 +247,12 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
     // instantiating the module will run the start function
     let instance = match module.instantiate(&mut store, Some(imports)) {
         Ok(instance) => instance,
-        Err(err) => return Err(err.to_string()),
+        Err(err) => {
+            // reset memory allocations
+            let mut memory_allocations = MEMORY_ALLOCATIONS.lock();
+            *memory_allocations = Vec::new();
+            return Err(err.to_string())
+        },
     };
 
     // check if there's a function called "main" exported
@@ -256,11 +261,20 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
             // there's an exported function called "main", that means that what the program wants to run isn't in the start function
             match func.call(&mut store, ()) {
                 Ok(_) => {}
-                Err(err) => return Err(err.to_string()),
+                Err(err) => {
+                    // reset memory allocations
+                    let mut memory_allocations = MEMORY_ALLOCATIONS.lock();
+                    *memory_allocations = Vec::new();
+                    return Err(err.to_string())
+                },
             }
         }
         Err(_) => {}
     }
+
+    // reset memory allocations
+    let mut memory_allocations = MEMORY_ALLOCATIONS.lock();
+    *memory_allocations = Vec::new();
 
     Ok(())
 }
