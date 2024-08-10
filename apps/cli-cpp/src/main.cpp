@@ -12,14 +12,14 @@ extern "C" void _start() {
         char command[100];
         std::cin >> command;
 
-        if (strcmp(command, "exit") == 0) {
+        if (std::strcmp(command, "exit") == 0) {
             break;
-        } else if (strcmp(command, "help") == 0) {
+        } else if (std::strcmp(command, "help") == 0) {
             std::cout << "Built-in commands:" << std::endl;
             std::cout << "help - show available commands" << std::endl;
             std::cout << "exit - exit the CLI" << std::endl;
         } else {
-            int returncode = system(command);
+            int returncode = std::system(command);
             if (returncode == -1) {
                 std::cout << "Command not found" << std::endl;
             } else if (returncode == -2) {

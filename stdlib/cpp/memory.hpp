@@ -40,6 +40,11 @@ void* operator new[](unsigned long size, const std::nothrow_t&) noexcept {
     return malloc(size);
 }
 
+// Custom operator new for non-allocating placement new
+void* operator new(unsigned long a, void* ptr) noexcept {
+    return ptr;
+}
+
 // Custom global delete operator
 void operator delete(void* ptr) noexcept {
     free(ptr);

@@ -8,6 +8,8 @@
 void* malloc(size_t size);
 void free(void* ptr);
 int ptrsize(void* ptr);
+int seedrng(long int* seed);
+int rng();
 
 // make our own memcpy function
 void* memcpy(void* dest, const void* src, size_t n) {
@@ -64,6 +66,17 @@ int atoi(const char* str) {
     }
 
     return sign * res;
+}
+
+// srand impl using the kernel's seedrng
+void srand(unsigned int seed) {
+    long int seed_long = (long int)seed;
+    seedrng(&seed_long);
+}
+
+// rand impl using the kernel's rng
+int rand() {
+    return rng();
 }
 
 #endif

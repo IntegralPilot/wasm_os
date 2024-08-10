@@ -6,4 +6,8 @@
 int atoi(const char* str);
 void* realloc(void* ptr, size_t size);
 
+// rng
+int rand();
+void srand(unsigned int seed);
+
 #endif // STDLIB_H

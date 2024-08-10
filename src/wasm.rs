@@ -1,15 +1,19 @@
+use core::convert::TryInto;
+
 use alloc::{
     string::{String, ToString},
-    vec,
     vec::Vec,
+    vec
 };
+use lazy_static::lazy_static;
+use rand::{RngCore, SeedableRng};
 use spin::Mutex;
 use tinywasm::{Extern, FuncContext, MemoryStringExt};
 
 use crate::{
     get_current_byte_in_stdin,
     interrupts::{NUMBER_OF_TIMER_INTERRUPTS, NUMBER_OF_TIMER_INTERRUPTS_SINCE_RESET},
-    print, println, reset_allowed_backspaces, serial_print,
+    print, println, reset_allowed_backspaces, serial_print
 };
 
 #[derive(Clone, Copy)]
@@ -54,6 +58,10 @@ fn free(allocations: Vec<Allocation>, ptr: usize) -> Result<Vec<Allocation>, Str
 
 pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
     static MEMORY_ALLOCATIONS: Mutex<Vec<Allocation>> = Mutex::new(Vec::new());
+    lazy_static! {
+        static ref RNG: Mutex<rand::rngs::SmallRng> =
+            Mutex::new(rand::rngs::SmallRng::seed_from_u64(1u64));
+    }
     let module = match tinywasm::Module::parse_bytes(bytes) {
         Ok(module) => module,
         Err(err) => return Err(err.to_string()),
@@ -275,6 +283,98 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
                 Err(_) => return Ok(-1),
             }
             Ok(0)
+        }),
+    ) {
+        Ok(_) => {}
+        Err(err) => return Err(err.to_string()),
+    }
+
+    // memset
+    match imports.define(
+        "env",
+        "memset",
+        Extern::typed_func(|mut ctx: FuncContext<'_>, data: (i32, i32, i32)| {
+            let mut memory = match ctx.exported_memory_mut("memory") {
+                Ok(memory) => memory,
+                Err(_) => return Ok(-1),
+            };
+            let dest = data.0 as usize;
+            let size = data.1 as usize;
+            let value = data.2 as u8;
+            let data = vec![value; size];
+            match memory.store(dest, size, &data) {
+                Ok(_) => Ok(0),
+                Err(_) => Ok(-1),
+            }
+        }),
+    ) {
+        Ok(_) => {}
+        Err(err) => return Err(err.to_string()),
+    }
+
+    // memcpy
+    match imports.define(
+        "env",
+        "memcpy",
+        Extern::typed_func(|mut ctx: FuncContext<'_>, data: (i32, i32, i32)| {
+            let mut memory = match ctx.exported_memory_mut("memory") {
+                Ok(memory) => memory,
+                Err(_) => return Ok(-1),
+            };
+            let src = data.0 as usize;
+            let dest = data.1 as usize;
+            let size = data.2 as usize;
+            let data = match memory.load(src, size) {
+                Ok(d) => d.to_vec(),
+                Err(_) => return Ok(-1),
+            };
+            match memory.store(dest, size, &data) {
+                Ok(_) => Ok(0),
+                Err(_) => Ok(-1),
+            }
+        }),
+    ) {
+        Ok(_) => {}
+        Err(err) => return Err(err.to_string()),
+    }
+
+    match imports.define(
+        "env",
+        "seedrng",
+        Extern::typed_func(|mut ctx: FuncContext<'_>, data: i32| {
+            // the rng is seeded using a u64, but with the wasm interface we can only pass i32
+            // so the i32 is a pointer to a u64 stored in the memory
+            let memory = match ctx.exported_memory("memory") {
+                Ok(memory) => memory,
+                Err(_) => return Ok(-1),
+            };
+            // the length of a u64
+            let size = 8;
+            let seed = match memory.load(data as usize, size) {
+                Ok(seed) => seed,
+                Err(_) => return Ok(-1),
+            };
+
+            // turn &[u8] into a u64
+            let seed = match seed.try_into() {
+                Ok(seed) => u64::from_le_bytes(seed),
+                Err(_) => return Ok(-1),
+            };
+
+            *RNG.lock() = rand::rngs::SmallRng::seed_from_u64(seed);
+            Ok(0)
+        }),
+    ) {
+        Ok(_) => {}
+        Err(err) => return Err(err.to_string()),
+    }
+
+    match imports.define(
+        "env",
+        "rng",
+        Extern::typed_func(|_: FuncContext<'_>, _: ()| {
+            let result = (RNG.lock().next_u32() & 0x7FFFFFFF) as i32;
+            Ok(result)
         }),
     ) {
         Ok(_) => {}

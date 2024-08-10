@@ -1,6 +1,8 @@
 #ifndef VECTOR_HPP
 #define VECTOR_HPP
 
+#include <new.hpp>
+
 #include "memory.hpp" // Assuming this provides malloc/free
 
 namespace std {
@@ -141,6 +143,24 @@ public:
         }
     }
 
+    // resize
+    void resize(size_type count) {
+        if (count < size_) {
+            for (size_type i = count; i < size_; ++i) {
+                data_[i].~T(); // Call destructors of the elements
+            }
+            size_ = count;
+        } else if (count > size_) {
+            if (count > capacity_) {
+                reserve(count);
+            }
+            for (size_type i = size_; i < count; ++i) {
+                new (&data_[i]) T(); // Default construct in-place
+            }
+            size_ = count;
+        }
+    }
+
     // Modifiers
     void push_back(const T& value) { 
         if (size_ == capacity_) {
@@ -148,6 +168,13 @@ public:
         }
         data_[size_] = value;
         ++size_;
+    }
+
+    void pop_back() {
+        if (size_ > 0) {
+            --size_;
+            data_[size_].~T(); // Call the destructor of the last element
+        }
     }
 
     template <typename... Args>
@@ -166,20 +193,68 @@ public:
         size_ = 0; 
     }
 
-    iterator insert(iterator pos, const T& value) {
+iterator insert(iterator pos, const T& value) {
+    size_type index = pos - begin();
+    if (size_ == capacity_) {
+        grow_capacity();
+        pos = begin() + index; // Recalculate position after capacity change
+    }
+
+    // Shift elements to the right to make space for new element
+    for (size_type i = size_; i > index; --i) {
+        data_[i] = std::move(data_[i - 1]);
+    }
+
+    data_[index] = value;
+    ++size_;
+    return begin() + index;
+}
+
+
+    iterator insert(iterator pos, iterator start, iterator end) {
+        size_type count = end - start;
         size_type index = pos - begin();
-        if (size_ == capacity_) {
-            grow_capacity();
-        }
+        if (size_ + count > capacity_) {
+            size_type new_capacity = size_ + count;
+            T* new_data = allocate(new_capacity);
 
-        // Shift elements after 'pos' one position to the right
-        for (iterator it = end(); it != pos; --it) {
-            *it = std::move(*(it - 1)); 
-        }
+            if (!new_data) {
+                for(;;); 
+            }
 
-        data_[index] = value;
-        ++size_;
-        return begin() + index; 
+            for (size_type i = 0; i < index; ++i) {
+                new_data[i] = std::move(data_[i]);
+            }
+
+            for (size_type i = 0; i < count; ++i) {
+                new (&new_data[index + i]) T(std::move(start[i]));
+            }
+
+            for (size_type i = index; i < size_; ++i) {
+                new (&new_data[index + count + i]) T(std::move(data_[i]));
+            }
+
+            deallocate(data_);
+            data_ = new_data;
+            size_ += count;
+            capacity_ = new_capacity;
+        } else {
+            for (size_type i = size_ + count - 1; i >= index + count; --i) {
+                data_[i] = std::move(data_[i - count]);
+            }
+
+            for (size_type i = 0; i < count; ++i) {
+                new (&data_[index + i]) T(std::move(start[i]));
+            }
+
+            size_ += count;
+        }
+        return begin() + index;
+    }
+
+    // range insert at pos 0
+    void insert(iterator start, iterator end) {
+        insert(0, start, end);
     }
 
     iterator erase(iterator pos) {
@@ -191,6 +266,20 @@ public:
             data_[size_].~T(); // Call the destructor of the last element
         }
         return pos; 
+    }
+
+    iterator erase(iterator first, iterator last) {
+        size_type count = last - first;
+        if (count > 0) {
+            for (iterator it = first; it != end() - count; ++it) {
+                *it = std::move(*(it + count));
+            }
+            for (iterator it = end() - count; it != end(); ++it) {
+                it->~T(); // Call destructors of the elements
+            }
+            size_ -= count;
+        }
+        return first; 
     }
 
     // Other
