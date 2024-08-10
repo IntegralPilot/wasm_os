@@ -1,5 +1,6 @@
 use alloc::{
     string::{String, ToString},
+    vec,
     vec::Vec,
 };
 use spin::Mutex;
@@ -24,7 +25,7 @@ fn malloc(allocations: Vec<Allocation>, size: usize) -> Result<AllocCommandRetur
     // try and find room
     let mut ptr = 0;
     for allocation in allocations.iter() {
-        if allocation.ptr - ptr >= size {
+        if allocation.ptr >= ptr && allocation.ptr - ptr >= size {
             break;
         }
         ptr = allocation.ptr + allocation.size;
@@ -244,6 +245,42 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         Err(err) => return Err(err.to_string()),
     }
 
+    match imports.define(
+        "env",
+        "memmove",
+        Extern::typed_func(|mut ctx: FuncContext<'_>, data: (i32, i32, i32)| {
+            let mut memory = match ctx.exported_memory_mut("memory") {
+                Ok(memory) => memory,
+                Err(_) => return Ok(-1),
+            };
+            let src = data.0 as usize;
+            let dest = data.1 as usize;
+            let size = data.2 as usize;
+            let src_data;
+            let dest_data;
+            src_data = match memory.load(src, size) {
+                Ok(d) => d.to_vec(),
+                Err(_) => return Ok(-1),
+            };
+            dest_data = match memory.load(dest, size) {
+                Ok(d) => d.to_vec(),
+                Err(_) => return Ok(-1),
+            };
+            match memory.store(src, size, &dest_data) {
+                Ok(_) => {}
+                Err(_) => return Ok(-1),
+            }
+            match memory.store(dest, size, &src_data) {
+                Ok(_) => {}
+                Err(_) => return Ok(-1),
+            }
+            Ok(0)
+        }),
+    ) {
+        Ok(_) => {}
+        Err(err) => return Err(err.to_string()),
+    }
+
     // instantiating the module will run the start function
     let instance = match module.instantiate(&mut store, Some(imports)) {
         Ok(instance) => instance,
@@ -251,8 +288,8 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
             // reset memory allocations
             let mut memory_allocations = MEMORY_ALLOCATIONS.lock();
             *memory_allocations = Vec::new();
-            return Err(err.to_string())
-        },
+            return Err(err.to_string());
+        }
     };
 
     // check if there's a function called "main" exported
@@ -265,8 +302,8 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
                     // reset memory allocations
                     let mut memory_allocations = MEMORY_ALLOCATIONS.lock();
                     *memory_allocations = Vec::new();
-                    return Err(err.to_string())
-                },
+                    return Err(err.to_string());
+                }
             }
         }
         Err(_) => {}

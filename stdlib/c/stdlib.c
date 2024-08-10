@@ -1,5 +1,10 @@
+#ifndef _STDLIB_C
+#define _STDLIB_C
+
 #include <stddef.h>
 
+// implemented in the kernel, but we need to declare them here
+// clang will link at runtime
 void* malloc(size_t size);
 void free(void* ptr);
 int ptrsize(void* ptr);
@@ -60,3 +65,5 @@ int atoi(const char* str) {
 
     return sign * res;
 }
+
+#endif

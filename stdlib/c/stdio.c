@@ -1,3 +1,6 @@
+#ifndef _STDIO_C
+#define _STDIO_C
+
 #include <stdarg.h>
 #include <string.h>
 #include <stdint.h> // Include for uintptr_t
@@ -173,3 +176,5 @@ int printf(const char *format, ...) {
     va_end(args);
     return count;
 }
+
+#endif
