@@ -2,8 +2,8 @@ use core::convert::TryInto;
 
 use alloc::{
     string::{String, ToString},
+    vec,
     vec::Vec,
-    vec
 };
 use lazy_static::lazy_static;
 use rand::{RngCore, SeedableRng};
@@ -13,7 +13,7 @@ use tinywasm::{Extern, FuncContext, MemoryStringExt};
 use crate::{
     get_current_byte_in_stdin,
     interrupts::{NUMBER_OF_TIMER_INTERRUPTS, NUMBER_OF_TIMER_INTERRUPTS_SINCE_RESET},
-    print, println, reset_allowed_backspaces, serial_print
+    print, println, reset_allowed_backspaces, serial_print,
 };
 
 #[derive(Clone, Copy)]

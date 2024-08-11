@@ -2,8 +2,7 @@
 #define VECTOR_HPP
 
 #include <new.hpp>
-
-#include "memory.hpp" // Assuming this provides malloc/free
+#include <utility.hpp>
 
 namespace std {
 
