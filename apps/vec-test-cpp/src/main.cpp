@@ -5,6 +5,8 @@
 #include <new.hpp>  // for std::badalloc
 
 int main() {
+    std::cout << "WasmOS C++ STDLIB Vector Test" << std::endl;
+
     std::srand(std::time(nullptr));
 
     // generate 10 random numbers to use in our testing

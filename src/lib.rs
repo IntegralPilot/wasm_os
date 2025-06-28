@@ -2,7 +2,6 @@
 #![cfg_attr(test, no_main)]
 #![feature(custom_test_frameworks)]
 #![feature(abi_x86_interrupt)]
-#![feature(const_mut_refs)]
 #![test_runner(crate::test_runner)]
 #![reexport_test_harness_main = "test_main"]
 
@@ -47,6 +46,7 @@ use core::panic::PanicInfo;
 pub mod allocator;
 pub mod apps;
 pub mod gdt;
+pub mod inode;
 pub mod interrupts;
 pub mod keyboard;
 pub mod memory;
@@ -113,7 +113,7 @@ pub fn hlt_loop() -> ! {
 }
 
 #[cfg(test)]
-use bootloader::{entry_point, BootInfo};
+use bootloader::{BootInfo, entry_point};
 
 #[cfg(test)]
 entry_point!(test_kernel_main);

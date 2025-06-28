@@ -5,10 +5,10 @@ LDFLAGS = -Wl,--allow-undefined
 all: main.wasm
 
 main.wasm:
-	copy ..\..\stdlib\glue\glue.c glue.c
+	cp ../../stdlib/glue/glue.c glue.c
 	$(CC) $(CFLAGS) $(LDFLAGS) glue.c -o ./main.wasm
-	move glue.c glue.c.generated
+	mv glue.c glue.c.generated
 
 clean:
-	del main.wasm
-	del glue.c.generated
+	rm main.wasm
+	rm glue.c.generated

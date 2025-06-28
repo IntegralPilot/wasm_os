@@ -98,12 +98,10 @@ else:
 
 # Move the built apps to the rootfs
 for app in apps:
-    # convert the data from the wasm file into like [0x00, 0x01, 0x02, ...]
-    with open(f"apps/{app}/main.wasm", "rb") as f:
-        data = f.read()
-        data = [byte for byte in data]
-    # write this as a string to the rootfs at Applications/{app}.hydro
-    with open(f"rootfs/Applications/{app}.hydro", "w") as f:
-        f.write(str(data))
+    # write each file to the rootfs at Applications/{app}.wasm
+    with open(f"apps/{app}/main.wasm", "rb") as src:
+        with open(f"rootfs/Applications/{app}.wasm", "wb") as dest:
+            shutil.copyfileobj(src, dest)
+
 
 print(" |-🎉 Done!")

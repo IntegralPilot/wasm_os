@@ -4,7 +4,7 @@
 
 extern "C" void _start() {
     // implement a simple cli
-    std::cout << "Welcome to Hydro CLI" << std::endl;
+    std::cout << "Welcome to WasmOS CLI" << std::endl;
     std::cout << "Type 'help' to see built-in commands" << std::endl;
 
     while (true) {

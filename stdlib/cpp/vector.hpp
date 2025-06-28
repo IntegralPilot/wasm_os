@@ -22,7 +22,7 @@ private:
 
     // Helper function for geometric growth
     void grow_capacity() {
-        size_type new_capacity = capacity_ == 0 ? 1 : capacity_ * 2; 
+        size_type new_capacity = capacity_ == 0 ? 1 : capacity_ * 2;
         reserve(new_capacity);
     }
 
@@ -34,39 +34,40 @@ public:
         : data_(allocate(count)), size_(count), capacity_(count)
     {
         for (size_type i = 0; i < size_; ++i) {
-            data_[i] = value;
+            new (&data_[i]) T(value); // Use placement new for construction
         }
     }
 
     // Copy Constructor
-    vector(const vector& other) 
-        : data_(allocate(other.size_)), size_(other.size_), capacity_(other.size_) 
+    vector(const vector& other)
+        : data_(allocate(other.size_)), size_(other.size_), capacity_(other.size_)
     {
         for (size_type i = 0; i < size_; ++i) {
-            data_[i] = other.data_[i]; 
+            new (&data_[i]) T(other.data_[i]); // Use placement new for construction
         }
     }
 
     // Destructor
     ~vector() {
-        deallocate(data_);
+        clear(); // Destroy elements
+        deallocate(data_); // Deallocate memory
     }
 
     // Copy Assignment Operator
     vector& operator=(const vector& other) {
         if (this != &other) {
-            T* new_data = allocate(other.size_);
-
-            for (size_type i = 0; i < other.size_; ++i) {
-                new_data[i] = other.data_[i];
-            }
-
+            // A simple but not fully exception-safe implementation
+            clear();
             deallocate(data_);
-            data_ = new_data;
+
+            data_ = allocate(other.capacity_);
+            capacity_ = other.capacity_;
             size_ = other.size_;
-            capacity_ = other.size_; 
+            for (size_type i = 0; i < size_; ++i) {
+                new (&data_[i]) T(other.data_[i]);
+            }
         }
-        return *this; 
+        return *this;
     }
 
     // Element access
@@ -74,16 +75,15 @@ public:
     const T& operator[](size_type pos) const { return data_[pos]; }
 
     T& at(size_type pos) {
-        // You might want to handle out-of-range errors differently in an embedded system.
         if (pos >= size_) {
-            for(;;); // Example: Halt the system
+            for(;;);
         }
-        return data_[pos]; 
+        return data_[pos];
     }
 
     const T& at(size_type pos) const {
         if (pos >= size_) {
-            for(;;); 
+            for(;;);
         }
         return data_[pos];
     }
@@ -92,7 +92,7 @@ public:
     const T& front() const { return data_[0]; }
 
     T& back() { return data_[size_ - 1]; }
-    const T& back() const { return data_[size_ - 1]; } 
+    const T& back() const { return data_[size_ - 1]; }
 
     // Iterators
     iterator begin() { return data_; }
@@ -111,11 +111,12 @@ public:
             T* new_data = allocate(size_);
 
             if (!new_data) {
-                for(;;); 
+                for(;;);
             }
 
             for (size_type i = 0; i < size_; ++i) {
-                new_data[i] = std::move(data_[i]); 
+                new (&new_data[i]) T(std::move(data_[i]));
+                data_[i].~T();
             }
 
             deallocate(data_);
@@ -129,24 +130,24 @@ public:
             T* new_data = allocate(new_capacity);
 
             if (!new_data) {
-                for(;;); 
+                for(;;);
             }
 
             for (size_type i = 0; i < size_; ++i) {
-                new_data[i] = std::move(data_[i]); 
+                new (&new_data[i]) T(std::move(data_[i]));
+                data_[i].~T();
             }
 
-            deallocate(data_); 
+            deallocate(data_);
             data_ = new_data;
             capacity_ = new_capacity;
         }
     }
 
-    // resize
     void resize(size_type count) {
         if (count < size_) {
             for (size_type i = count; i < size_; ++i) {
-                data_[i].~T(); // Call destructors of the elements
+                data_[i].~T();
             }
             size_ = count;
         } else if (count > size_) {
@@ -154,25 +155,25 @@ public:
                 reserve(count);
             }
             for (size_type i = size_; i < count; ++i) {
-                new (&data_[i]) T(); // Default construct in-place
+                new (&data_[i]) T();
             }
             size_ = count;
         }
     }
 
     // Modifiers
-    void push_back(const T& value) { 
+    void push_back(const T& value) {
         if (size_ == capacity_) {
             grow_capacity();
         }
-        data_[size_] = value;
+        new (&data_[size_]) T(value);
         ++size_;
     }
 
     void pop_back() {
         if (size_ > 0) {
             --size_;
-            data_[size_].~T(); // Call the destructor of the last element
+            data_[size_].~T();
         }
     }
 
@@ -181,34 +182,33 @@ public:
         if (size_ == capacity_) {
             grow_capacity();
         }
-        new (&data_[size_]) T(std::forward<Args>(args)...); // Construct in-place
+        new (&data_[size_]) T(std::forward<Args>(args)...);
         ++size_;
     }
 
     void clear() noexcept {
         for (size_type i = 0; i < size_; ++i) {
-            data_[i].~T(); // Call destructors of the elements
+            data_[i].~T();
         }
-        size_ = 0; 
+        size_ = 0;
     }
 
-iterator insert(iterator pos, const T& value) {
-    size_type index = pos - begin();
-    if (size_ == capacity_) {
-        grow_capacity();
-        pos = begin() + index; // Recalculate position after capacity change
+    iterator insert(iterator pos, const T& value) {
+        size_type index = pos - begin();
+        if (size_ == capacity_) {
+            grow_capacity();
+            pos = begin() + index;
+        }
+
+        new (&data_[size_]) T();
+        for (size_type i = size_; i > index; --i) {
+            data_[i] = std::move(data_[i - 1]);
+        }
+
+        data_[index] = value;
+        ++size_;
+        return begin() + index;
     }
-
-    // Shift elements to the right to make space for new element
-    for (size_type i = size_; i > index; --i) {
-        data_[i] = std::move(data_[i - 1]);
-    }
-
-    data_[index] = value;
-    ++size_;
-    return begin() + index;
-}
-
 
     iterator insert(iterator pos, iterator start, iterator end) {
         size_type count = end - start;
@@ -218,34 +218,31 @@ iterator insert(iterator pos, const T& value) {
             T* new_data = allocate(new_capacity);
 
             if (!new_data) {
-                for(;;); 
+                for(;;);
             }
 
             for (size_type i = 0; i < index; ++i) {
-                new_data[i] = std::move(data_[i]);
+                new (&new_data[i]) T(std::move(data_[i]));
             }
-
             for (size_type i = 0; i < count; ++i) {
-                new (&new_data[index + i]) T(std::move(start[i]));
+                new (&new_data[index + i]) T(*(start + i));
             }
-
             for (size_type i = index; i < size_; ++i) {
-                new (&new_data[index + count + i]) T(std::move(data_[i]));
+                new (&new_data[index + count + i - index]) T(std::move(data_[i]));
             }
 
+            clear();
             deallocate(data_);
             data_ = new_data;
-            size_ += count;
+            size_ = index + count + (size_ - index);
             capacity_ = new_capacity;
         } else {
             for (size_type i = size_ + count - 1; i >= index + count; --i) {
                 data_[i] = std::move(data_[i - count]);
             }
-
             for (size_type i = 0; i < count; ++i) {
-                new (&data_[index + i]) T(std::move(start[i]));
+                new (&data_[index + i]) T(*(start + i));
             }
-
             size_ += count;
         }
         return begin() + index;
@@ -253,7 +250,8 @@ iterator insert(iterator pos, const T& value) {
 
     // range insert at pos 0
     void insert(iterator start, iterator end) {
-        insert(0, start, end);
+        // FIX: Pass the actual beginning iterator, not a null pointer.
+        insert(this->begin(), start, end);
     }
 
     iterator erase(iterator pos) {
@@ -262,38 +260,38 @@ iterator insert(iterator pos, const T& value) {
                 *it = std::move(*(it + 1));
             }
             --size_;
-            data_[size_].~T(); // Call the destructor of the last element
+            data_[size_].~T();
         }
-        return pos; 
+        return pos;
     }
 
     iterator erase(iterator first, iterator last) {
         size_type count = last - first;
         if (count > 0) {
-            for (iterator it = first; it != end() - count; ++it) {
-                *it = std::move(*(it + count));
+            iterator write_pos = first;
+            iterator read_pos = last;
+            while (read_pos != end()) {
+                *write_pos++ = std::move(*read_pos++);
             }
-            for (iterator it = end() - count; it != end(); ++it) {
-                it->~T(); // Call destructors of the elements
+            for (iterator it = write_pos; it != end(); ++it) {
+                it->~T();
             }
             size_ -= count;
         }
-        return first; 
+        return first;
     }
 
-    // Other
     T* data() noexcept { return data_; }
     const T* data() const noexcept { return data_; }
 
 private:
     static T* allocate(size_type n) {
         if (n > 0) {
-            T* ptr = static_cast<T*>(::malloc(n * sizeof(T)));
-            if (!ptr) {
-                // Handle allocation failure 
-                for(;;); 
+            void* raw_ptr = ::malloc(n * sizeof(T));
+            if (!raw_ptr) {
+                for(;;);
             }
-            return ptr;
+            return static_cast<T*>(raw_ptr);
         }
         return nullptr;
     }

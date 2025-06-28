@@ -2,7 +2,7 @@ default: main.wasm
 
 main.wasm: node_modules
 	npm run asbuild:release
-	copy .\build\release.wasm main.wasm
+	cp ./build/release.wasm main.wasm
 
 node_modules:
 	npm i

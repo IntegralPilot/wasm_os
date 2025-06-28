@@ -1,9 +1,13 @@
-use crate::{interrupts::NUMBER_OF_TIMER_INTERRUPTS_SINCE_RESET, println, wasm::run_from_bytes};
+use crate::{
+    interrupts::NUMBER_OF_TIMER_INTERRUPTS_SINCE_RESET, serial_println, wasm::run_from_bytes,
+};
 use alloc::{
+    format,
     string::{String, ToString},
     sync::Arc,
     vec::Vec,
 };
+use breadcrumbs::log;
 use lazy_static::lazy_static;
 use spin::Mutex;
 
@@ -29,7 +33,11 @@ pub fn run_app(command_line: &str) -> Result<(), i32> {
         let mut no = NUMBER_OF_TIMER_INTERRUPTS_SINCE_RESET.lock();
         *no = 0;
     }
-    //println!("Running app: {:?}", command_line);
+    log!(
+        breadcrumbs::LogLevel::Info,
+        "run_app",
+        format!("run_app: {}", command_line)
+    );
     let app_name = command_line.split_whitespace().next().unwrap_or("");
     let apps;
     {
@@ -46,7 +54,7 @@ pub fn run_app(command_line: &str) -> Result<(), i32> {
     match run_from_bytes(command_line.to_string(), &app.wasm_bytes) {
         Ok(_) => Ok(()),
         Err(e) => {
-            println!("Error running app: {}", e);
+            serial_println!("Error running app: {}", e);
             Err(-2)
         }
     }

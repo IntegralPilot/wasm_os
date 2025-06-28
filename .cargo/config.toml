@@ -9,5 +9,5 @@ target = "x86_64-blog_os.json"
 runner = "bootimage runner"
 
 [alias]
-runx = " run -- -m 1G -serial stdio"
+runx = " run -- -m 1G -serial stdio -d int,guest_errors,cpu_reset -D qemu.log -no-reboot"
 runnogtk = "run -- -display none -serial file:serial.log -curses"

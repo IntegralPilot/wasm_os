@@ -16,7 +16,7 @@ int main(int argc, char *argv[]) {
 
   int number = std::atoi(num);
 
-  std::cout << "Running Collatz Conjecture for " << number << " numbers" << std::endl;
+  std::cout << "Checking for Collatz Conjecture breaks for " << number << " numbers" << std::endl;
 
   std::cout << "1 is not a break!" << std::endl;
 

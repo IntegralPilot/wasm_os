@@ -1,6 +1,6 @@
 use crate::set_current_byte_in_stdin;
 use alloc::{format, string::ToString};
-use pc_keyboard::{layouts, DecodedKey, HandleControl, Keyboard, ScancodeSet1};
+use pc_keyboard::{DecodedKey, HandleControl, Keyboard, ScancodeSet1, layouts};
 
 pub(crate) fn handle_keypress(scancode: u8) {
     let mut keyboard = Keyboard::new(

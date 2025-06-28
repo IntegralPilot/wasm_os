@@ -8,4 +8,4 @@ main.wasm:
 	$(CC) $(CFLAGS) $(LDFLAGS) src/main.c -o ./main.wasm
 
 clean:
-	del main.wasm
+	rm main.wasm

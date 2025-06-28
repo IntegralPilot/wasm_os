@@ -1,19 +1,22 @@
 use core::convert::TryInto;
 
 use alloc::{
+    format,
     string::{String, ToString},
     vec,
     vec::Vec,
 };
+use breadcrumbs::log;
 use lazy_static::lazy_static;
 use rand::{RngCore, SeedableRng};
 use spin::Mutex;
 use tinywasm::{Extern, FuncContext, MemoryStringExt};
 
 use crate::{
-    get_current_byte_in_stdin,
+    inode::get_inode,
     interrupts::{NUMBER_OF_TIMER_INTERRUPTS, NUMBER_OF_TIMER_INTERRUPTS_SINCE_RESET},
-    print, println, reset_allowed_backspaces, serial_print,
+    println,
+    vga_buffer::_clear_screen,
 };
 
 #[derive(Clone, Copy)]
@@ -26,20 +29,16 @@ struct Allocation {
 struct AllocCommandReturn(Vec<Allocation>, usize);
 
 fn malloc(allocations: Vec<Allocation>, size: usize) -> Result<AllocCommandReturn, String> {
-    // try and find room
-    let mut ptr = 0;
-    for allocation in allocations.iter() {
-        if allocation.ptr >= ptr && allocation.ptr - ptr >= size {
-            break;
-        }
-        ptr = allocation.ptr + allocation.size;
-    }
-    // if we didn't find room, allocate at the end
-    if ptr == 0 {
-        if let Some(last) = allocations.last() {
-            ptr = last.ptr + last.size;
-        }
-    }
+    // A simple but robust bump allocator.
+    // It finds the highest allocated address and allocates memory immediately after it.
+    let ptr = if let Some(last_alloc) = allocations.iter().max_by_key(|a| a.ptr + a.size) {
+        // Find the end of the highest allocation.
+        last_alloc.ptr + last_alloc.size
+    } else {
+        // This is the first allocation. Start at address 1 to avoid returning 0 (which is nullptr in C/C++).
+        1
+    };
+
     let mut new_allocations = allocations.clone();
     new_allocations.push(Allocation { ptr, size });
     Ok(AllocCommandReturn(new_allocations, ptr))
@@ -57,15 +56,31 @@ fn free(allocations: Vec<Allocation>, ptr: usize) -> Result<Vec<Allocation>, Str
 }
 
 pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
+    log!(
+        breadcrumbs::LogLevel::Info,
+        "wasm",
+        format!("Running wasm module with args: {}", args)
+    );
     static MEMORY_ALLOCATIONS: Mutex<Vec<Allocation>> = Mutex::new(Vec::new());
+    log!(
+        breadcrumbs::LogLevel::Verbose,
+        "wasm-init",
+        "Defined memory allocations"
+    );
     lazy_static! {
         static ref RNG: Mutex<rand::rngs::SmallRng> =
             Mutex::new(rand::rngs::SmallRng::seed_from_u64(1u64));
     }
+    log!(breadcrumbs::LogLevel::Verbose, "wasm-init", "Setup RNG");
     let module = match tinywasm::Module::parse_bytes(bytes) {
         Ok(module) => module,
         Err(err) => return Err(err.to_string()),
     };
+    log!(
+        breadcrumbs::LogLevel::Verbose,
+        "wasm-init",
+        "Parsed wasm module"
+    );
     let mut store = tinywasm::Store::default();
     let mut imports = tinywasm::Imports::new();
 
@@ -73,8 +88,15 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         "env",
         "putchar",
         Extern::typed_func(|_: FuncContext<'_>, v: i32| {
-            print!("{}", v as u8 as char);
-            reset_allowed_backspaces();
+            log!(
+                breadcrumbs::LogLevel::Verbose,
+                "guest-abi-calls",
+                format!("putchar called with value: {}", v)
+            );
+            let node = get_inode("/dev/stdout");
+            if let Some(inode) = node {
+                inode.write_inputreciever(vec![v as u8]);
+            }
             Ok(())
         }),
     ) {
@@ -86,7 +108,15 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         "env",
         "s_putchar",
         Extern::typed_func(|_: FuncContext<'_>, v: i32| {
-            serial_print!("{}", v as u8 as char);
+            log!(
+                breadcrumbs::LogLevel::Verbose,
+                "guest-abi-calls",
+                format!("s_putchar called with value: {}", v)
+            );
+            let node = get_inode("/dev/serial0");
+            if let Some(inode) = node {
+                inode.write_inputreciever(vec![v as u8]);
+            }
             Ok(())
         }),
     ) {
@@ -98,8 +128,15 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         "env",
         "getchar",
         Extern::typed_func(|_: FuncContext<'_>, _: ()| {
-            let byte = get_current_byte_in_stdin();
-            Ok(byte as i32)
+            // we notably DON'T log getchar in guest-abi-calls as it is called very frequently
+            let node = get_inode("/dev/stdin");
+            if let Some(inode) = node {
+                let data = inode.read_outputter();
+                if let Some(data) = data {
+                    return Ok(data[0] as i32);
+                }
+            }
+            Ok(-1)
         }),
     ) {
         Ok(_) => {}
@@ -110,7 +147,7 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         "env",
         "abort",
         Extern::typed_func(|_: FuncContext<'_>, _: (i32, i32, i32, i32)| {
-            println!("abort called");
+            println!("Progam aborted.");
             Ok(())
         }),
     ) {
@@ -122,6 +159,11 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         "env",
         "runapp",
         Extern::typed_func(|mut context: FuncContext<'_>, pointer: i32| {
+            log!(
+                breadcrumbs::LogLevel::Verbose,
+                "guest-abi-calls",
+                format!("runapp called with pointer: {}", pointer)
+            );
             let name = context.exported_memory("memory");
             match name {
                 Ok(name) => {
@@ -146,6 +188,11 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         "env",
         "getargs",
         Extern::typed_func(move |mut context: FuncContext<'_>, _: ()| {
+            log!(
+                breadcrumbs::LogLevel::Verbose,
+                "guest-abi-calls",
+                "getargs called"
+            );
             let mut memory = match context.exported_memory_mut("memory") {
                 Ok(memory) => memory,
                 Err(_) => return Ok(-1),
@@ -178,6 +225,11 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         "env",
         "timesinceboot",
         Extern::typed_func(|_: FuncContext<'_>, _: ()| {
+            log!(
+                breadcrumbs::LogLevel::Verbose,
+                "guest-abi-calls",
+                "timesinceboot called"
+            );
             // timer interrupt occurs 200 times per second
             let time = *NUMBER_OF_TIMER_INTERRUPTS.lock() * 50_000;
             Ok(time as i32)
@@ -191,6 +243,11 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         "env",
         "cputime",
         Extern::typed_func(|_: FuncContext<'_>, _: ()| {
+            log!(
+                breadcrumbs::LogLevel::Verbose,
+                "guest-abi-calls",
+                "cputime called"
+            );
             // timer interrupt occurs 200 times per second
             let time = *NUMBER_OF_TIMER_INTERRUPTS_SINCE_RESET.lock() * 50_000;
             Ok(time as i32)
@@ -204,6 +261,11 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         "env",
         "malloc",
         Extern::typed_func(|_: FuncContext<'_>, size: i32| {
+            log!(
+                breadcrumbs::LogLevel::Verbose,
+                "guest-abi-calls",
+                format!("malloc called with size: {}", size)
+            );
             let mut memory_allocations = MEMORY_ALLOCATIONS.lock();
             match malloc((*memory_allocations.clone()).to_vec(), size as usize) {
                 Ok(ptr) => {
@@ -222,6 +284,11 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         "env",
         "free",
         Extern::typed_func(|_: FuncContext<'_>, ptr: i32| {
+            log!(
+                breadcrumbs::LogLevel::Verbose,
+                "guest-abi-calls",
+                format!("free called with pointer: {}", ptr)
+            );
             let mut memory_allocations = MEMORY_ALLOCATIONS.lock();
             match free((*memory_allocations.clone()).to_vec(), ptr as usize) {
                 Ok(ptr) => {
@@ -240,6 +307,11 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         "env",
         "ptrsize",
         Extern::typed_func(|_: FuncContext<'_>, ptr: i32| {
+            log!(
+                breadcrumbs::LogLevel::Verbose,
+                "guest-abi-calls",
+                format!("ptrsize called with pointer: {}", ptr)
+            );
             let memory_allocations = MEMORY_ALLOCATIONS.lock();
             for allocation in memory_allocations.iter() {
                 if allocation.ptr == ptr as usize {
@@ -257,6 +329,11 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         "env",
         "memmove",
         Extern::typed_func(|mut ctx: FuncContext<'_>, data: (i32, i32, i32)| {
+            log!(
+                breadcrumbs::LogLevel::Verbose,
+                "guest-abi-calls",
+                format!("memmove called with data: {:?}", data)
+            );
             let mut memory = match ctx.exported_memory_mut("memory") {
                 Ok(memory) => memory,
                 Err(_) => return Ok(-1),
@@ -294,6 +371,11 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         "env",
         "memset",
         Extern::typed_func(|mut ctx: FuncContext<'_>, data: (i32, i32, i32)| {
+            log!(
+                breadcrumbs::LogLevel::Verbose,
+                "guest-abi-calls",
+                format!("memset called with data: {:?}", data)
+            );
             let mut memory = match ctx.exported_memory_mut("memory") {
                 Ok(memory) => memory,
                 Err(_) => return Ok(-1),
@@ -317,6 +399,11 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         "env",
         "memcpy",
         Extern::typed_func(|mut ctx: FuncContext<'_>, data: (i32, i32, i32)| {
+            log!(
+                breadcrumbs::LogLevel::Verbose,
+                "guest-abi-calls",
+                format!("memcpy called with data: {:?}", data)
+            );
             let mut memory = match ctx.exported_memory_mut("memory") {
                 Ok(memory) => memory,
                 Err(_) => return Ok(-1),
@@ -342,6 +429,11 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         "env",
         "seedrng",
         Extern::typed_func(|mut ctx: FuncContext<'_>, data: i32| {
+            log!(
+                breadcrumbs::LogLevel::Verbose,
+                "guest-abi-calls",
+                format!("seedrng called with data: {}", data)
+            );
             // the rng is seeded using a u64, but with the wasm interface we can only pass i32
             // so the i32 is a pointer to a u64 stored in the memory
             let memory = match ctx.exported_memory("memory") {
@@ -373,6 +465,11 @@ pub fn run_from_bytes(args: String, bytes: &[u8]) -> Result<(), String> {
         "env",
         "rng",
         Extern::typed_func(|_: FuncContext<'_>, _: ()| {
+            log!(
+                breadcrumbs::LogLevel::Verbose,
+                "guest-abi-calls",
+                "rng called"
+            );
             let result = (RNG.lock().next_u32() & 0x7FFFFFFF) as i32;
             Ok(result)
         }),

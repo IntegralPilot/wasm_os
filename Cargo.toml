@@ -1,16 +1,9 @@
 [package]
-name = "blog_os"
+name = "wasm_os"
 version = "0.1.0"
-authors = ["Philipp Oppermann <dev@phil-opp.com>"]
-edition = "2018"
+authors = ["IntegralPilot", "Philipp Oppermann <dev@phil-opp.com>"]
+edition = "2024"
 
-[[test]]
-name = "should_panic"
-harness = false
-
-[[test]]
-name = "stack_overflow"
-harness = false
 
 [dependencies]
 bootloader = { version = "0.9", features = ["map_physical_memory"] }
